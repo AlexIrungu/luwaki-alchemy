@@ -8,6 +8,9 @@ const ACCENT: Record<string, string> = {
   sublime: "bg-sublime",
   opulence: "bg-opulence",
   noir: "bg-noir",
+  turquoise: "bg-turquoise",
+  gold: "bg-gold",
+  burgundy: "bg-burgundy",
 };
 
 /**
@@ -18,7 +21,16 @@ const ACCENT: Record<string, string> = {
  * (mask out, text back), so it stays on transforms. Plays once on load:
  * this is a commerce page.
  */
-export function DesignName({ name, collection }: { name: string; collection: string | null }) {
+export function DesignName({
+  name,
+  collection,
+  accent,
+}: {
+  name: string;
+  collection: string | null;
+  /** A brand colour for the bar on pages that aren't a collection's (e.g. CONTACT). */
+  accent?: "turquoise" | "gold" | "burgundy";
+}) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,7 +57,7 @@ export function DesignName({ name, collection }: { name: string; collection: str
           data-bar
           aria-hidden="true"
           className={`absolute inset-x-[-0.12em] bottom-[0.08em] h-[0.38em] origin-left ${
-            collection ? (ACCENT[collection] ?? "bg-line") : "bg-line"
+            ACCENT[accent ?? collection ?? ""] ?? "bg-line"
           }`}
         />
         <span data-mask className="relative block overflow-hidden pb-[0.06em]">

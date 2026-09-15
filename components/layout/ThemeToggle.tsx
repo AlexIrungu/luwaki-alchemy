@@ -38,7 +38,11 @@ export function ThemeToggle() {
       className="transition-opacity hover:opacity-60"
     >
       {/* The label waits for mount: the server can't know the visitor's theme. */}
-      <span className={theme ? "" : "invisible"}>{theme === "dark" ? "LIGHT" : "DARK"}</span>
+      <span className={theme ? "" : "invisible"}>
+        {/* A glyph on phones, where five nav words don't fit beside the logo. */}
+        <span aria-hidden="true" className="text-sm sm:hidden">◐</span>
+        <span className="hidden sm:inline">{theme === "dark" ? "LIGHT" : "DARK"}</span>
+      </span>
     </button>
   );
 }

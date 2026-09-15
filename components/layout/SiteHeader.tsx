@@ -13,11 +13,11 @@ const NAV = [
 // both themes: it reads dark over a pale ground and light over a dark one.
 export function SiteHeader() {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 flex items-center justify-between px-6 py-5 mix-blend-difference">
-      <Link href="/" className="font-display text-lg tracking-[0.3em] text-invert">
+    <header className="fixed inset-x-0 top-0 z-50 flex items-center justify-between gap-4 px-4 py-5 mix-blend-difference sm:px-6">
+      <Link href="/" className="font-display text-base tracking-[0.2em] text-invert sm:text-lg sm:tracking-[0.3em]">
         LUWAKI
       </Link>
-      <nav className="flex gap-6 font-mono text-[11px] tracking-[0.2em] text-invert">
+      <nav className="flex items-center gap-3.5 font-mono text-[10px] tracking-[0.12em] text-invert sm:gap-6 sm:text-[11px] sm:tracking-[0.2em]">
         {NAV.map(({ href, label }) => (
           <Link key={href} href={href} className="transition-opacity hover:opacity-60">
             {label}

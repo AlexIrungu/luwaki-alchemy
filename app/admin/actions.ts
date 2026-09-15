@@ -332,12 +332,21 @@ export async function updateCommission(
   return { ok: true };
 }
 
-export async function setMessageHandled(messageId: string, handled: boolean) {
-  const { supabase, error: auth } = await requireAdmin();
+export async function setMessageHandled(messageId: string, handled: boolean): Promise<AdminState> {
+  const { supabase, userId, error: auth } = await requireAdmin();
   if (auth) return { error: auth };
 
-  await supabase.from("contact_messages").update({ handled }).eq("id", messageId);
-  revalidatePath("/admin/messages");
+  const { error } = await supabase.from("contact_messages").update({ handled }).eq("id", messageId);
+  if (error) return { error: error.message };
+
+  await logActivity(supabase, {
+    actor_id: userId,
+    entity_type: "message",
+    entity_id: messageId,
+    action: handled ? "handled" : "reopened",
+  });
+
+  revalidatePath("/admin", "layout");
   return { ok: true };
 }
 

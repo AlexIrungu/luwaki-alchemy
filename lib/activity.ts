@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type ActivityEntry = {
   /** null for system events (webhook, payment verification). */
   actor_id: string | null;
-  entity_type: "order" | "product";
+  entity_type: "order" | "product" | "message";
   entity_id: string;
   action: string;
   from_status?: string | null;
