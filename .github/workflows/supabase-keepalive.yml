@@ -1,0 +1,55 @@
+# Keeps the Supabase free-tier project from pausing. Supabase pauses a free
+# project after 7 days without activity; this runs a real database read
+# (not just an HTTP ping to the gateway) twice a week.
+#
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_URL       — same value as NEXT_PUBLIC_SUPABASE_URL
+#   SUPABASE_ANON_KEY  — same value as NEXT_PUBLIC_SUPABASE_ANON_KEY
+# The anon key is already public in the browser bundle; RLS limits it to
+# published rows.
+#
+# Once the shop has real traffic this is redundant, and it can be deleted when
+# the project moves to a paid plan (paid projects don't pause).
+#
+# GitHub disables scheduled workflows in a repo with no commits for 60 days —
+# if that happens, re-enable it from the Actions tab.
+
+name: Supabase keep-alive
+
+on:
+  schedule:
+    # Mondays and Thursdays, 06:00 UTC (09:00 Nairobi) — never more than 4 days apart.
+    - cron: "0 6 * * 1,4"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Query the database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_ANON_KEY secrets are not set."
+            exit 1
+          fi
+          for attempt in 1 2 3; do
+            status=$(curl -sS -o body.json -w '%{http_code}' \
+              "$SUPABASE_URL/rest/v1/collections?select=id&limit=1" \
+              -H "apikey: $SUPABASE_ANON_KEY" \
+              -H "Authorization: Bearer $SUPABASE_ANON_KEY") || status=000
+            if [ "$status" = "200" ]; then
+              echo "Supabase responded 200: $(cat body.json)"
+              exit 0
+            fi
+            echo "Attempt $attempt got HTTP $status — retrying in 30s"
+            sleep 30
+          done
+          echo "::error::Supabase did not respond 200 after 3 attempts (last: $status). The project may already be paused — restore it from the Supabase dashboard."
+          exit 1
