@@ -1,22 +1,29 @@
 import { SocialFeed } from "@/components/SocialFeed";
+import { HeroMorph, type HeroSlide } from "@/components/home/HeroMorph";
 import { Placeholder } from "@/components/ui/Section";
 import { COLLECTION_ORDER, COLLECTION_VERB } from "@/lib/catalogue";
+import { HERO_SLUGS } from "@/lib/hero";
+import { createClient } from "@/lib/supabase/server";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const supabase = await createClient();
+  const { data: designs } = await supabase
+    .from("products")
+    .select("slug, name, collections(name)")
+    .in("slug", [...HERO_SLUGS])
+    .eq("is_published", true)
+    .returns<{ slug: string; name: string; collections: { name: string } | null }[]>();
+
+  // Hero order comes from lib/hero.ts; only published designs appear, so every
+  // caption links to a page that exists.
+  const slides: HeroSlide[] = HERO_SLUGS.flatMap((slug) => {
+    const design = designs?.find((d) => d.slug === slug);
+    return design ? [{ slug, name: design.name, collection: design.collections?.name ?? null }] : [];
+  });
+
   return (
     <>
-      <section className="flex min-h-screen items-center justify-center px-6">
-        <div className="text-center">
-          <h1 className="font-display text-6xl tracking-[0.3em] md:text-8xl">LUWAKI</h1>
-          <p className="mt-6 font-mono text-[11px] tracking-[0.3em] text-ink-dim">ALCHEMY</p>
-        </div>
-      </section>
-
-      <Placeholder
-        phase={2}
-        title="Hero morph"
-        brief="Full-screen designs morphing into one another, plus the logo effect. Reference: generousbranding.com."
-      />
+      <HeroMorph slides={slides} />
 
       {COLLECTION_ORDER.map((slug) => (
         <Placeholder

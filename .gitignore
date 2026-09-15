@@ -9,3 +9,7 @@ next-env.d.ts
 
 # Raw Rhino/GLB exports are large and regenerable — keep them out of git.
 source/
+
+# Python bytecode from scripts/hero/render.py
+__pycache__/
+*.pyc

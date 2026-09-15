@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { FINGERS, HANDS, type Finger, type Hand } from "@/lib/catalogue";
 import { saveMeasurements, type FormState } from "@/app/account/actions";
@@ -51,7 +52,10 @@ export function MeasurementsForm({ existing }: { existing: Record<string, number
         {state.error ? (
           <span role="alert" className="text-danger">{state.error}</span>
         ) : state.ok ? (
-          "Saved — all ten on file."
+          <>
+            Saved — all ten on file.{" "}
+            <Link href="/collections" className="text-resin underline">Choose your designs</Link>
+          </>
         ) : (
           `${filled} of 10 on file.`
         )}

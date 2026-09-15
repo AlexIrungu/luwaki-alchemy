@@ -1,0 +1,197 @@
+[
+  {
+    "slug": "butterfly-cove",
+    "sizeKB": {
+      "full": 1064,
+      "web": 727
+    },
+    "vertices": {
+      "full": 373928,
+      "web": 258197
+    },
+    "sourceTriangles": 407452,
+    "sourceMB": 23.3
+  },
+  {
+    "slug": "crypt-crawler",
+    "sizeKB": {
+      "full": 1859,
+      "web": 1353
+    },
+    "vertices": {
+      "full": 441336,
+      "web": 297007
+    },
+    "sourceTriangles": 792552,
+    "sourceMB": 25.6
+  },
+  {
+    "slug": "dragon-scale",
+    "sizeKB": {
+      "full": 130,
+      "web": 107
+    },
+    "vertices": {
+      "full": 40567,
+      "web": 31225
+    },
+    "sourceTriangles": 40265,
+    "sourceMB": 1.9
+  },
+  {
+    "slug": "fractured-relic",
+    "sizeKB": {
+      "full": 724,
+      "web": 403
+    },
+    "vertices": {
+      "full": 186394,
+      "web": 83575
+    },
+    "sourceTriangles": 371407,
+    "sourceMB": 13.4
+  },
+  {
+    "slug": "jungle",
+    "sizeKB": {
+      "full": 683,
+      "web": 490
+    },
+    "vertices": {
+      "full": 238984,
+      "web": 174652
+    },
+    "sourceTriangles": 241274,
+    "sourceMB": 14.8
+  },
+  {
+    "slug": "kaleidoscope",
+    "sizeKB": {
+      "full": 32,
+      "web": 28
+    },
+    "vertices": {
+      "full": 7539,
+      "web": 6346
+    },
+    "sourceTriangles": 9448,
+    "sourceMB": 0.4
+  },
+  {
+    "slug": "leopard-rose",
+    "sizeKB": {
+      "full": 816,
+      "web": 605
+    },
+    "vertices": {
+      "full": 289558,
+      "web": 207406
+    },
+    "sourceTriangles": 330686,
+    "sourceMB": 14.5
+  },
+  {
+    "slug": "obscura-strata",
+    "sizeKB": {
+      "full": 1931,
+      "web": 750
+    },
+    "vertices": {
+      "full": 715255,
+      "web": 194107
+    },
+    "sourceTriangles": 1162686,
+    "sourceMB": 39.9
+  },
+  {
+    "slug": "prism",
+    "sizeKB": {
+      "full": 24,
+      "web": 20
+    },
+    "vertices": {
+      "full": 5532,
+      "web": 4459
+    },
+    "sourceTriangles": 7738,
+    "sourceMB": 0.4
+  },
+  {
+    "slug": "rimuru",
+    "sizeKB": {
+      "full": 1995,
+      "web": 1056
+    },
+    "vertices": {
+      "full": 580959,
+      "web": 276495
+    },
+    "sourceTriangles": 1046042,
+    "sourceMB": 35
+  },
+  {
+    "slug": "ripples",
+    "sizeKB": {
+      "full": 1698,
+      "web": 664
+    },
+    "vertices": {
+      "full": 644820,
+      "web": 140184
+    },
+    "sourceTriangles": 1257192,
+    "sourceMB": 38.9
+  },
+  {
+    "slug": "spikey-sapphire",
+    "sizeKB": {
+      "full": 24,
+      "web": 22
+    },
+    "vertices": {
+      "full": 6094,
+      "web": 5358
+    },
+    "sourceTriangles": 7738,
+    "sourceMB": 0.4
+  },
+  {
+    "slug": "tessella",
+    "sizeKB": {
+      "full": 85,
+      "web": 77
+    },
+    "vertices": {
+      "full": 22740,
+      "web": 19997
+    },
+    "sourceTriangles": 24593,
+    "sourceMB": 1.1
+  },
+  {
+    "slug": "tidal-form",
+    "sizeKB": {
+      "full": 44,
+      "web": 39
+    },
+    "vertices": {
+      "full": 10973,
+      "web": 9520
+    },
+    "sourceTriangles": 13878,
+    "sourceMB": 0.6
+  },
+  {
+    "slug": "turtles-reef",
+    "sizeKB": {
+      "full": 268,
+      "web": 171
+    },
+    "vertices": {
+      "full": 78000,
+      "web": 47876
+    },
+    "sourceTriangles": 77354,
+    "sourceMB": 3.7
+  }
+]

@@ -1,0 +1,74 @@
+<!doctype html>
+<!--
+  Hero still renderer. Loaded by scripts/hero/render.py from a static server at
+  the project root — not part of the Next app. Mirrors the material logic in
+  components/three/NailViewer.tsx, but software-rendered browsers can't do
+  transmission, so the resin shell is faked with plain opacity here.
+-->
+<html><head><style>html,body{margin:0;background:#08070a}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script></head>
+<body><script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+const q = new URLSearchParams(location.search);
+const W = +q.get("w"), H = +q.get("h");
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+r.setSize(W, H);
+r.toneMapping = THREE.ACESFilmicToneMapping;
+r.toneMappingExposure = 1.1;
+r.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(r.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(q.get("bg"));
+const pm = new THREE.PMREMGenerator(r);
+scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.add(new THREE.AmbientLight("#ffffff", 0.35));
+const key = new THREE.DirectionalLight(q.get("key"), 1.5); key.position.set(2, 3, 2.5); scene.add(key);
+const rim = new THREE.DirectionalLight(q.get("rim"), 2.2); rim.position.set(-3, 1, -2); scene.add(rim);
+
+const gltf = await new GLTFLoader()
+  .setDRACOLoader(new DRACOLoader().setDecoderPath("/public/draco/"))
+  .loadAsync(`/public/models/${q.get("m")}-full.glb`);
+const root = gltf.scene;
+
+const hide = [];
+root.traverse((o) => {
+  if (!o.isMesh) return;
+  o.geometry.computeBoundingBox();
+  const s = o.geometry.boundingBox.getSize(new THREE.Vector3());
+  const [a, b, c] = [s.x, s.y, s.z].sort((m, n) => m - n);
+  if (a < 0.0015 && b < 0.004 && c > 0.02 && o.geometry.attributes.position.count < 400) { hide.push(o); return; }
+  o.material = o.material.clone();
+  if (o.material.color.getHSL({}).s < 0.15) {
+    Object.assign(o.material, { color: new THREE.Color("#e8eef0"), transparent: true, opacity: 0.22, depthWrite: false, transmission: 0, roughness: 0.1, clearcoat: 1 });
+    o.renderOrder = 2;
+  } else {
+    Object.assign(o.material, { transmission: 0, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.05, metalness: 0 });
+    o.renderOrder = 1;
+  }
+});
+hide.forEach((o) => o.parent.remove(o));
+
+const box = new THREE.Box3().setFromObject(root);
+root.position.sub(box.getCenter(new THREE.Vector3()));
+const L = Math.max(...box.getSize(new THREE.Vector3()).toArray());
+
+const pivot = new THREE.Group();
+pivot.add(root);
+pivot.rotation.x = -Math.PI / 2;          // Rhino Z-up → stand the nail upright
+const tilt = new THREE.Group();
+tilt.add(pivot);
+tilt.rotation.set(0.1, +q.get("ry"), +q.get("rz"));
+scene.add(tilt);
+
+const cam = new THREE.PerspectiveCamera(30, W / H, 0.001, 10);
+cam.position.set(0, 0, L * +q.get("fit"));
+cam.lookAt(0, 0, 0);
+r.render(scene, cam);
+r.render(scene, cam);
+window.DONE = true;
+</script></body></html>

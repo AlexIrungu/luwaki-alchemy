@@ -5,9 +5,12 @@
  * are used through their semantic Tailwind names (`bg-panel`, `text-ink-dim`),
  * never as raw hex in a component.
  *
- * PLACEHOLDER PALETTE. Lucy owns the brand; these values are a defensible
- * starting point (translucent resin on near-black) to be replaced once the
- * brand sheet arrives. Same for the fonts in app/layout.tsx.
+ * BRAND COLOURS from Lucy (2026-09-15): Burgundy, Turquoise, Gold. Each is
+ * set to its nearest colour in Sanzo Wada's Dictionary of Color Combinations,
+ * and the three are tied together by his original plates: Pale Burnt Lake
+ * pairs with Venice Green in plate 283 and with Yellow Ocher in plate 124.
+ * Burgundy is too dark for text on the ground — accents and borders only.
+ * The near-black ground and the fonts in app/layout.tsx are placeholders.
  */
 @theme {
   --color-ground: #08070a;
@@ -20,13 +23,18 @@
   --color-ink-dim: #a09aa8;
   --color-ink-faint: #6b6575;
 
-  /* Collection accents — the three worlds. */
-  --color-sublime: #9fd8e8;
-  --color-opulence: #d8b166;
-  --color-noir: #8c6fd4;
+  /* Brand colours — Sanzo Wada names in comments. */
+  --color-burgundy: #802626; /* Pale Burnt Lake */
+  --color-turquoise: #62c6bf; /* Venice Green */
+  --color-gold: #e2b540; /* Yellow Ocher */
 
-  --color-resin: #cfe9f2;
-  --color-flag: #e0a94a;
+  /* Collection accents — the three worlds, drawn from the brand colours. */
+  --color-sublime: var(--color-turquoise);
+  --color-opulence: var(--color-gold);
+  --color-noir: var(--color-burgundy);
+
+  --color-resin: var(--color-turquoise);
+  --color-flag: var(--color-gold);
   --color-danger: #e06060;
 
   --font-sans: var(--font-inter), system-ui, sans-serif;

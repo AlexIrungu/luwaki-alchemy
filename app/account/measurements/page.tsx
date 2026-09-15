@@ -29,6 +29,24 @@ export default async function MeasurementsPage() {
           Every LUWAKI set is printed for one pair of hands. Measure the widest point of each
           nail bed in millimetres and record all ten — we cannot produce an order without them.
         </p>
+
+        <details className="mt-8 border border-line bg-panel p-5 text-sm leading-relaxed text-ink-dim open:pb-6">
+          <summary className="cursor-pointer font-mono text-[11px] tracking-[0.25em] text-ink">
+            HOW TO MEASURE
+          </summary>
+          <p className="mt-4">You need clear tape, a pen and a millimetre ruler.</p>
+          <ol className="mt-3 list-decimal space-y-2 pl-5">
+            <li>Lay a strip of clear tape across the nail.</li>
+            <li>Mark both edges of the nail at its widest point, where it meets the skin.</li>
+            <li>Peel the tape off, stick it on the ruler and read the distance between the marks.</li>
+            <li>Repeat for all ten fingers. Round to the nearest half millimetre.</li>
+          </ol>
+          <p className="mt-4 text-ink-faint">
+            As a rough check, thumbs usually measure 14–18 mm and pinkies 7–10 mm. If every
+            finger reads the same, measure again.
+          </p>
+        </details>
+
         <MeasurementsForm existing={existing} />
       </div>
     </div>

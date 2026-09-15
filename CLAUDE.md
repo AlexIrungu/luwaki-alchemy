@@ -56,8 +56,8 @@ the shell is never mistaken for the finished site and scope stays visible.
 - **Phase 1 — the store.** Every route, the 10-slot cart, accounts + measurements, Paystack,
   PRIVATE EDIT, admin dashboard, restrained motion, static imagery.
 - **Phase 2 — the effects layer.** Hero morph, ENVISION pin, angled COLLECTIONS scroll, numbers
-  and logo effects, UNIVERSE 1→∞, rainbow cursor. **Separately paid — never an assumed inclusion.**
-- **Phase 3 — the 3D viewer.** Port `luwaki-demo`: Rhino→Draco GLB pipeline, orbit viewer, colour
+  and logo effects, UNIVERSE 1→∞, rainbow cursor. **In active build alongside Phase 1 (client approved 2026-09-15).**
+- **Phase 3 — the 3D viewer.** Ported 2026-09-15 (`components/three/`, `scripts/optimize-models.mjs`) from `luwaki-demo`: Rhino→Draco GLB pipeline, orbit viewer, colour
   picker. Two gotchas carry over verbatim:
   - **Never use drei `<Environment preset>`** — it fetches an HDR and suspends, rendering the
     Canvas blank white outside a `<Suspense>`. Use `StudioEnvironment` from the demo.
@@ -110,6 +110,8 @@ checkout. Packaging options and nail-prep add-ons are likewise placeholders.
 
 - Don't reach for Shopify/Woo — the 10-slot cart and per-nail pricing rule them out.
 - Don't add a contact form to PRIVATE EDIT. Account required, details from the profile.
-- Don't seed designs yet: the collection→design mapping is unconfirmed and "Dimonds" has to be
-  settled before it becomes a URL slug.
-- Don't copy the GLBs in from the demo — Kent hasn't delivered the real exports.
+- Don't bump React to 19.3 until `@react-three/fiber` supports it — fiber 9.7.0 caps its peer at
+  `<19.3`, which is why `react`/`react-dom` are pinned `~19.2.8`.
+- The first 15 designs are seeded (`supabase/seed/`). Kent's file names are final; the brief's
+  working names map across in `designs_2026-09-15.sql`.
+- Don't commit Kent's raw exports. They live in `source/` (gitignored); `npm run models` writes the Draco GLBs + `public/models/manifest.json`. A model's filename slug must equal the design's `products.slug`.
