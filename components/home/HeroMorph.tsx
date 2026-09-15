@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import gsap from "gsap";
+import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { HERO_SIZE, heroSrc } from "@/lib/hero";
+import { canMorph } from "@/lib/morph";
+import type { HoverInfo, SplitRef } from "@/components/three/HeroNail3D";
+
+/** The real-time surface morph — desktop only, loaded as its own chunk. */
+const HeroNail3D = dynamic(() => import("@/components/three/HeroNail3D"), { ssr: false });
 
 export type HeroSlide = { slug: string; name: string; collection: string | null };
 
@@ -91,13 +98,115 @@ function tokenRGB(name: string): [number, number, number] {
   return [((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255];
 }
 
-export function HeroMorph({ slides }: { slides: HeroSlide[] }) {
+export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; setDesigns?: HeroSlide[] }) {
   const sectionRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wordRef = useRef<HTMLHeadingElement>(null);
   const tagRef = useRef<HTMLParagraphElement>(null);
   const [index, setIndex] = useState(0);
   const [webgl, setWebgl] = useState(true);
+
+  // "3d": the live morph (desktop + WebGL2). "2d": the image dissolve (phones,
+  // older GPUs). Reduced motion stays "pending" and simply shows the first still.
+  const [mode, setMode] = useState<"pending" | "3d" | "2d">("pending");
+  const [morphSlugs, setMorphSlugs] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const desktop = window.matchMedia("(min-width: 768px)").matches;
+    const webgl2 = Boolean(document.createElement("canvas").getContext("webgl2"));
+    const modelled = slides.filter((s) => canMorph(s.slug)).length >= 2;
+    setMode(desktop && webgl2 && modelled ? "3d" : "2d");
+  }, [slides]);
+
+  // Memoised: a fresh array each render would make the 3D layer reload its maps.
+  const morphable = useMemo(() => slides.map((s) => s.slug).filter(canMorph), [slides]);
+  const setSlugs = useMemo(() => setDesigns.map((d) => d.slug).filter(canMorph), [setDesigns]);
+  // Scroll progress through the pinned hero, read every frame by the 3D scene.
+  const split = useRef(0) as SplitRef;
+
+  // Hover label for the fanned set: follows the pointer, keeps its last text
+  // while it fades out.
+  const stageRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const designIndex = useMemo(
+    () => new Map([...slides, ...setDesigns].map((d) => [d.slug, d])),
+    [slides, setDesigns],
+  );
+  const [label, setLabel] = useState<{ name: string; collection: string | null; colour: string } | null>(null);
+  const [labelOn, setLabelOn] = useState(false);
+  const onMorphHover = useCallback(
+    (info: HoverInfo) => {
+      if (!info) return setLabelOn(false);
+      const design = designIndex.get(info.slug);
+      if (!design) return;
+      setLabel({ name: design.name, collection: design.collection, colour: info.colour });
+      setLabelOn(true);
+    },
+    [designIndex],
+  );
+  const onMorphReady = useCallback((slugs: string[]) => setMorphSlugs(slugs), []);
+  const router = useRouter();
+  const onMorphSelect = useCallback((slug: string) => router.push(`/designs/${slug}`), [router]);
+  const onMorphFail = useCallback(() => {
+    setMorphSlugs(null);
+    setMode("2d");
+  }, []);
+
+  // One becomes ten (desktop 3D only): the hero pins for a stretch of scroll.
+  // The wordmark and caption give way to the set's line as the nail fans out.
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (mode !== "3d" || !section) return;
+
+    const ctx = gsap.context(() => {
+      gsap
+        .timeline({
+          defaults: { ease: "none" },
+          scrollTrigger: {
+            trigger: section,
+            start: "top top",
+            end: "bottom bottom",
+            scrub: true,
+            onUpdate: (self) => {
+              split.current = self.progress;
+            },
+          },
+        })
+        .to("[data-hero-intro]", { opacity: 0, yPercent: -30, duration: 0.14 }, 0.04)
+        .to("[data-hero-caption]", { opacity: 0, duration: 0.08 }, 0.04)
+        .fromTo("[data-hero-set]", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.2 }, 0.42)
+        .to({}, { duration: 0.38 }, 0.62);
+    }, section);
+
+    // The hover label trails the pointer across the pinned stage.
+    const stage = stageRef.current;
+    const tooltip = tooltipRef.current;
+    let onPointer: ((event: PointerEvent) => void) | null = null;
+    if (stage && tooltip) {
+      const toX = gsap.quickTo(tooltip, "x", { duration: 0.3, ease: "power3" });
+      const toY = gsap.quickTo(tooltip, "y", { duration: 0.3, ease: "power3" });
+      onPointer = (event: PointerEvent) => {
+        const rect = stage.getBoundingClientRect();
+        toX(event.clientX - rect.left);
+        toY(event.clientY - rect.top);
+      };
+      stage.addEventListener("pointermove", onPointer);
+    }
+
+    // The section just grew; everything below needs re-measuring.
+    ScrollTrigger.refresh();
+    return () => {
+      if (stage && onPointer) stage.removeEventListener("pointermove", onPointer);
+      ctx.revert();
+    };
+  }, [mode, split]);
+  const onMorphChange = useCallback((slug: string) => {
+    setIndex((i) => {
+      const found = slides.findIndex((s) => s.slug === slug);
+      return found === -1 ? i : found;
+    });
+  }, [slides]);
 
   // Logo effect: the letters rise into place and the tracking settles, then
   // ALCHEMY arrives. Skipped entirely under reduced motion.
@@ -119,7 +228,7 @@ export function HeroMorph({ slides }: { slides: HeroSlide[] }) {
   useEffect(() => {
     const canvas = canvasRef.current;
     const section = sectionRef.current;
-    if (!canvas || !section || slides.length < 2) return;
+    if (mode !== "2d" || !canvas || !section || slides.length < 2) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const gl = canvas.getContext("webgl", { antialias: false, premultipliedAlpha: false });
@@ -254,20 +363,25 @@ export function HeroMorph({ slides }: { slides: HeroSlide[] }) {
       gl.deleteBuffer(buffer);
       gl.deleteProgram(program);
     };
-  }, [slides]);
+  }, [slides, mode]);
 
   // Without WebGL, fall back to a plain crossfade loop over the <img> stack.
   useEffect(() => {
-    if (webgl || slides.length < 2) return;
+    if (mode !== "2d" || webgl || slides.length < 2) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const id = window.setInterval(() => setIndex((i) => (i + 1) % slides.length), (HOLD + MORPH) * 1000);
     return () => window.clearInterval(id);
-  }, [webgl, slides.length]);
+  }, [mode, webgl, slides.length]);
 
   const current = slides[index];
+  const morphReady = mode === "3d" && morphSlugs !== null;
+  // In 3D the caption counts only the designs that can morph.
+  const captionTotal = morphReady ? morphSlugs.length : slides.length;
+  const captionPosition = morphReady ? Math.max(0, morphSlugs.indexOf(current?.slug ?? "")) : index;
 
   return (
-    <section ref={sectionRef} className="relative h-svh min-h-[32rem] overflow-hidden bg-ground">
+    <section ref={sectionRef} className={`relative bg-ground ${mode === "3d" ? "h-[260vh]" : ""}`}>
+      <div ref={stageRef} className="sticky top-0 h-svh min-h-[32rem] overflow-hidden">
       {slides.map((slide, i) => (
         // eslint-disable-next-line @next/next/no-img-element -- the shader reads these same files; next/image would re-encode them to different URLs
         <img
@@ -278,12 +392,36 @@ export function HeroMorph({ slides }: { slides: HeroSlide[] }) {
           loading={i === 0 ? "eager" : "lazy"}
           fetchPriority={i === 0 ? "high" : "auto"}
           className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
-            i === index ? "opacity-100" : "opacity-0"
+            i === index && !morphReady ? "opacity-100" : "opacity-0"
           }`}
         />
       ))}
 
-      {webgl && slides.length > 1 && (
+      {mode === "3d" && (
+        <>
+          {/* Dark studio: a soft pool of light for the nail to float in. */}
+          <div
+            aria-hidden="true"
+            className={`absolute inset-0 bg-[radial-gradient(ellipse_at_50%_58%,var(--color-panel-2),var(--color-ground)_62%)] transition-opacity duration-1000 ${
+              morphReady ? "opacity-100" : "opacity-0"
+            }`}
+          />
+          <div className="absolute inset-0">
+            <HeroNail3D
+              slugs={morphable}
+              setSlugs={setSlugs}
+              split={split}
+              onReady={onMorphReady}
+              onChange={onMorphChange}
+              onSelect={onMorphSelect}
+              onHover={onMorphHover}
+              onFail={onMorphFail}
+            />
+          </div>
+        </>
+      )}
+
+      {mode === "2d" && webgl && slides.length > 1 && (
         <canvas
           ref={canvasRef}
           aria-hidden="true"
@@ -293,7 +431,7 @@ export function HeroMorph({ slides }: { slides: HeroSlide[] }) {
 
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-ground/40 via-transparent to-ground/80" />
 
-      <div className="relative flex h-full flex-col items-center justify-center px-6 text-center">
+      <div data-hero-intro className="pointer-events-none relative flex h-full flex-col items-center justify-center px-6 text-center">
         <h1 ref={wordRef} aria-label="LUWAKI" className="flex overflow-hidden font-display text-6xl tracking-[0.3em] md:text-8xl">
           {"LUWAKI".split("").map((letter, i) => (
             <span key={i} data-letter aria-hidden="true" className="inline-block">
@@ -306,18 +444,58 @@ export function HeroMorph({ slides }: { slides: HeroSlide[] }) {
         </p>
       </div>
 
+      {mode === "3d" && (
+        <div
+          data-hero-set
+          className="pointer-events-none absolute inset-x-0 top-[15vh] flex flex-col items-center px-6 text-center opacity-0"
+        >
+          {/* DRAFT COPY — Lucy owns the voice. */}
+          <p className="font-display text-5xl font-light tracking-[0.08em] md:text-7xl">TEN NAILS. ONE SET.</p>
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-ink-dim">
+            Choose a design for every finger — each one printed to your measurements.
+          </p>
+          <Link
+            href="/collections"
+            className="pointer-events-auto mt-8 font-mono text-[11px] tracking-[0.3em] text-ink-dim transition-colors hover:text-ink"
+          >
+            BUILD YOUR SET →
+          </Link>
+        </div>
+      )}
+
+      {mode === "3d" && (
+        <div
+          ref={tooltipRef}
+          aria-hidden="true"
+          className={`pointer-events-none absolute left-0 top-0 z-40 ml-5 mt-5 transition-opacity duration-300 ${
+            labelOn ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {label && (
+            <>
+              <p className="font-display text-2xl font-light">{label.name}</p>
+              <p className="mt-1 whitespace-nowrap font-mono text-[10px] tracking-[0.25em] text-ink-dim">
+                {[label.collection, label.colour && `IN ${label.colour.toUpperCase()}`, "VIEW →"].filter(Boolean).join(" · ")}
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
       {current && (
         <Link
+          data-hero-caption
           href={`/designs/${current.slug}`}
           className="absolute bottom-8 left-6 font-mono text-[10px] tracking-[0.25em] text-ink-dim transition-colors hover:text-ink md:left-10"
         >
           <span className="text-ink-faint">
-            {String(index + 1).padStart(2, "0")} / {String(slides.length).padStart(2, "0")}
+            {String(captionPosition + 1).padStart(2, "0")} / {String(captionTotal).padStart(2, "0")}
           </span>{" "}
-          · {current.name.toUpperCase()}
+          · SHOP {current.name.toUpperCase()} →
           {current.collection && <span className="text-ink-faint"> · {current.collection}</span>}
         </Link>
       )}
+      </div>
     </section>
   );
 }

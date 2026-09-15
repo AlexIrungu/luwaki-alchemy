@@ -41,9 +41,19 @@ one enormous word, not several medium ones.
 
 ## Effects → references
 
-### 1. Hero morph — `components/home/HeroMorph.tsx` ✅ built
-Ref: generousbranding.com. Full-screen designs dissolving into one another (noise shader, turquoise
-edge glow) + LUWAKI letter rise. Notes from Alex pending.
+### 1. Hero morph — `components/home/HeroMorph.tsx` + `components/three/HeroNail3D.tsx` ✅ built
+Ref: generousbranding.com/vision — their `marque-au-coeur-1920.mp4` (20.9 s loop, offline 3D render):
+one object floating centre-frame over a studio backdrop with a contact shadow; silhouette and
+surface change independently, new surfaces *grow out of* / *sink into* the body; seamless loop.
+
+LUWAKI's version is **real-time**, not video. 14 of 15 designs share an identical coffin shell
+(Kent laid them out on one Rhino sheet), so one shell stays on screen while the current pattern
+sinks 3 mm into the resin and noise-dissolves (turquoise edge) as the next rises out. ~4 s per
+design (3 s hold + 1.4 s morph), slow turn + float, dark studio backdrop from tokens.
+Fractured Relic is excluded automatically — its cracked pattern is its own shell.
+**Phones / no WebGL2 → the 2D image dissolve. Reduced motion → first still, static.**
+When the other four shapes arrive, the silhouette can morph too (needs resampling to shared
+topology).
 
 ### 2. Collection blocks — DREAM → SUBLIME · EMBODY → OPULENCE · CONJURE → NOIR — `components/home/CollectionBlocks.tsx` ✅ built
 - **Big numeral, pinned at the edge** — rudlundschwarm.at: a viewport-height numeral (1, 2, 3)

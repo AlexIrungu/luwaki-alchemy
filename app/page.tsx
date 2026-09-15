@@ -4,6 +4,7 @@ import { CollectionBlocks, type CollectionBlock } from "@/components/home/Collec
 import { Envision } from "@/components/home/Envision";
 import { HERO_SLUGS } from "@/lib/hero";
 import { hasStill } from "@/lib/stills";
+import { canMorph } from "@/lib/morph";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function HomePage() {
@@ -36,9 +37,16 @@ export default async function HomePage() {
     designs: c.products.filter((d) => d.is_published && hasStill(d.slug)).map(({ slug, name }) => ({ slug, name })),
   }));
 
+  // The set of ten draws on every published design that has baked morph maps.
+  const setDesigns: HeroSlide[] = (collections ?? []).flatMap((c) =>
+    c.products
+      .filter((d) => d.is_published && canMorph(d.slug))
+      .map((d) => ({ slug: d.slug, name: d.name, collection: c.name })),
+  );
+
   return (
     <>
-      <HeroMorph slides={slides} />
+      <HeroMorph slides={slides} setDesigns={setDesigns} />
       <CollectionBlocks blocks={blocks} />
       <Envision designs={blocks.flatMap((b) => b.designs)} />
 
