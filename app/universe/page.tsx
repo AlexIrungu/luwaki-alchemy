@@ -16,12 +16,14 @@ export default async function UniversePage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("products")
-    .select("slug, name")
+    .select("slug, name, unit_price_kes, collections(name)")
     .eq("is_published", true)
     .order("name")
-    .returns<{ slug: string; name: string }[]>();
+    .returns<{ slug: string; name: string; unit_price_kes: number; collections: { name: string } | null }[]>();
 
-  const withStills = (data ?? []).filter((d) => hasStill(d.slug));
+  const withStills = (data ?? [])
+    .filter((d) => hasStill(d.slug))
+    .map((d) => ({ slug: d.slug, name: d.name, collection: d.collections?.name ?? null, priceKes: d.unit_price_kes }));
   // The most visible images draw from the hero set — the stills that render cleanly.
   const featured = (HERO_SLUGS as readonly string[]).flatMap((slug) => withStills.filter((d) => d.slug === slug));
 

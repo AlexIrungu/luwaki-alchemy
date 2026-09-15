@@ -2,14 +2,19 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { gsap, prefersReducedMotion } from "@/lib/gsap";
 import { heroSrc } from "@/lib/hero";
+import { canMorph } from "@/lib/morph";
+import { formatKES } from "@/lib/money";
+import type { NailFocus } from "@/components/three/CollectionNails";
 import type { HueRef, ProgressRef } from "@/components/three/UniverseNail";
 
 const UniverseNail = dynamic(() => import("@/components/three/UniverseNail"), { ssr: false });
+/** The REPEAT wall's live nail — the collections tracker in single-card mode. */
+const CollectionNails = dynamic(() => import("@/components/three/CollectionNails"), { ssr: false });
 
-export type UniverseDesign = { slug: string; name: string };
+export type UniverseDesign = { slug: string; name: string; collection?: string | null; priceKes?: number };
 
 /**
  * DRAFT COPY — from confirmed facts (modelled geometry, translucent resin,
@@ -146,6 +151,78 @@ export function UniverseSteps({ designs, modelSlugs }: { designs: UniverseDesign
   const stageRef = useRef<HTMLElement>(null);
   const progress = useRef(0) as ProgressRef;
   const hue = useRef(0) as HueRef;
+  // REPEAT wall: a ripple follows the pointer, the card under it comes alive as
+  // a 3D nail, and a panel names it.
+  const stickyRef = useRef<HTMLDivElement>(null);
+  const wallRef = useRef<HTMLUListElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const wallPointer = useRef({ x: 0, y: 0 });
+  const nailFocus = useRef(null) as NailFocus;
+  const [hovered, setHovered] = useState<{ index: number; design: UniverseDesign } | null>(null);
+  const [liveNail, setLiveNail] = useState(false);
+  const [liveReady, setLiveReady] = useState(false);
+  const liveSlugs = useMemo(() => [...new Set(designs.map((d) => d.slug))].filter(canMorph), [designs]);
+  useEffect(() => {
+    if (prefersReducedMotion() || liveSlugs.length === 0) return;
+    const desktop = window.matchMedia("(min-width: 1024px)").matches;
+    setLiveNail(desktop && Boolean(document.createElement("canvas").getContext("webgl2")));
+  }, [liveSlugs]);
+  const onLiveReady = useCallback(() => setLiveReady(true), []);
+  const onLiveFail = useCallback(() => {
+    setLiveReady(false);
+    setLiveNail(false);
+  }, []);
+
+  // 1. The ripple: each card lifts, grows and brightens by its distance from the
+  //    pointer, so a wave moves through the wall with the mouse.
+  const rippleWall = (event: ReactPointerEvent<HTMLUListElement>) => {
+    wallPointer.current = { x: event.clientX, y: event.clientY };
+    wallRef.current?.querySelectorAll<HTMLElement>("[data-wall-card]").forEach((card) => {
+      const box = card.getBoundingClientRect();
+      const dx = event.clientX - (box.left + box.width / 2);
+      const dy = event.clientY - (box.top + box.height / 2);
+      const near = Math.exp(-(dx * dx + dy * dy) / (2 * 150 * 150));
+      gsap.to(card, { y: -18 * near, scale: 1 + 0.24 * near, opacity: 0.3 + 0.7 * near, duration: 0.45, ease: "power3.out", overwrite: "auto" });
+    });
+  };
+  const settleWall = () => {
+    wallRef.current?.querySelectorAll<HTMLElement>("[data-wall-card]").forEach((card) => {
+      gsap.to(card, { y: 0, scale: 1, opacity: 1, duration: 0.6, ease: "power3.out", overwrite: "auto" });
+    });
+    nailFocus.current = null;
+    setHovered(null);
+  };
+
+  // 2 + 3. The card under the pointer: its nail goes live, the panel moves beside it.
+  const focusCard = (card: HTMLElement, index: number, design: UniverseDesign) => {
+    nailFocus.current = { el: card, slug: design.slug };
+    setHovered({ index, design });
+    const sticky = stickyRef.current;
+    const panel = panelRef.current;
+    if (!sticky || !panel) return;
+    const box = card.getBoundingClientRect();
+    const frame = sticky.getBoundingClientRect();
+    const width = panel.offsetWidth || 256;
+    const right = box.right + 24 + width < frame.right;
+    gsap.to(panel, {
+      x: right ? box.right - frame.left + 24 : box.left - frame.left - 24 - width,
+      y: box.top - frame.top,
+      duration: 0.45,
+      ease: "power3.out",
+      overwrite: "auto",
+    });
+  };
+
+  // 4. The panel's name rises letter by letter each time it changes.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!hovered || !panel || prefersReducedMotion()) return;
+    gsap.fromTo(
+      panel.querySelectorAll("[data-panel-letter]"),
+      { yPercent: 110, opacity: 0 },
+      { yPercent: 0, opacity: 1, duration: 0.55, ease: "power4.out", stagger: 0.022, overwrite: true },
+    );
+  }, [hovered?.index]); // eslint-disable-line react-hooks/exhaustive-deps -- replay only when the design changes
   const wall = useMemo(
     () => (designs.length ? Array.from({ length: 20 }, (_, i) => designs[i % designs.length]) : []),
     [designs],
@@ -283,7 +360,7 @@ export function UniverseSteps({ designs, modelSlugs }: { designs: UniverseDesign
         style={{ ["--hue" as string]: "0" }}
         className="relative h-[640vh] border-t border-line-soft motion-reduce:hidden"
       >
-        <div className="sticky top-0 h-svh overflow-hidden">
+        <div ref={stickyRef} className="sticky top-0 h-svh overflow-hidden">
           {STEPS.map((step) => (
             <p
               key={step.word}
@@ -322,16 +399,29 @@ export function UniverseSteps({ designs, modelSlugs }: { designs: UniverseDesign
           )}
 
           <div data-repeat className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-10 px-6">
-            <ul className="grid grid-cols-5 gap-2 md:grid-cols-10">
+            {/* Ripple and focus live on the inner link: the <li> carries the entrance scale. */}
+            <ul ref={wallRef} className="grid grid-cols-5 gap-2 md:grid-cols-10" onPointerMove={rippleWall} onPointerLeave={settleWall}>
               {wall.map((design, i) => (
                 <li key={i} data-repeat-card className="w-[clamp(2.5rem,7vw,6.5rem)]">
                   <Link
                     href={`/designs/${design.slug}`}
                     aria-label={design.name}
-                    className="block aspect-[3/4] overflow-hidden border border-line bg-panel"
+                    data-wall-card
+                    onPointerEnter={(event) => focusCard(event.currentTarget, i, design)}
+                    onFocus={(event) => focusCard(event.currentTarget, i, design)}
+                    className={`relative block aspect-[3/4] overflow-hidden border bg-panel ${
+                      hovered?.index === i ? "z-10 border-ink-faint" : "border-line"
+                    }`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- static stills shared with the hero shader */}
-                    <img src={heroSrc(design.slug)} alt="" loading="lazy" className="h-full w-full scale-125 object-cover" />
+                    <img
+                      src={heroSrc(design.slug)}
+                      alt=""
+                      loading="lazy"
+                      className={`h-full w-full scale-125 object-cover transition-opacity duration-300 ${
+                        liveReady && hovered?.index === i ? "opacity-0" : "opacity-100"
+                      }`}
+                    />
                   </Link>
                 </li>
               ))}
@@ -343,6 +433,51 @@ export function UniverseSteps({ designs, modelSlugs }: { designs: UniverseDesign
             >
               EXPLORE THE COLLECTIONS →
             </Link>
+          </div>
+
+          {liveNail && (
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-20">
+              <CollectionNails
+                slugs={liveSlugs}
+                root={stickyRef}
+                pointer={wallPointer}
+                focus={nailFocus}
+                fill={0.85}
+                tilt={0}
+                onReady={onLiveReady}
+                onFail={onLiveFail}
+              />
+            </div>
+          )}
+
+          {/* The REPEAT wall's info panel, moved beside whichever card is focused. */}
+          <div
+            ref={panelRef}
+            aria-live="polite"
+            className={`pointer-events-none absolute left-0 top-0 z-30 w-64 border border-line bg-ground/90 p-5 backdrop-blur-sm transition-opacity duration-300 ${
+              hovered ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            {hovered && (
+              <div key={hovered.index}>
+                {hovered.design.collection && (
+                  <p className="font-mono text-[10px] tracking-[0.3em] text-ink-faint">{hovered.design.collection}</p>
+                )}
+                <p aria-label={hovered.design.name} className="mt-2 flex flex-wrap overflow-hidden font-display text-3xl font-light leading-tight">
+                  {hovered.design.name.split("").map((letter, j) => (
+                    <span key={j} data-panel-letter aria-hidden="true" className="inline-block">
+                      {letter === " " ? "\u00a0" : letter}
+                    </span>
+                  ))}
+                </p>
+                {typeof hovered.design.priceKes === "number" && (
+                  <p className="mt-3 font-mono text-[11px] tracking-[0.2em] text-ink-dim">
+                    {formatKES(hovered.design.priceKes)} PER NAIL
+                  </p>
+                )}
+                <p className="mt-4 font-mono text-[11px] tracking-[0.3em] text-resin">VIEW →</p>
+              </div>
+            )}
           </div>
 
           <span

@@ -21,6 +21,8 @@ const GRID_WIDTH = (MORPH.bounds.x1 - MORPH.bounds.x0) / 1000;
 const NAIL_LENGTH = 0.036;
 
 type Point = { x: number; y: number };
+/** Single-card mode: draw only this card's nail (UNIVERSE's REPEAT wall). */
+export type NailFocus = { current: { el: HTMLElement; slug: string } | null };
 
 /**
  * Live nails for the COLLECTIONS grid. The cards live in a CSS plane tilted in
@@ -35,12 +37,18 @@ function Nails({
   root,
   hovered,
   pointer,
+  focus,
+  fill,
+  tilt,
 }: {
   maps: Map<string, DesignMaps>;
   tokens: Tokens;
   root: RefObject<HTMLElement | null>;
-  hovered: { current: string | null };
+  hovered?: { current: string | null };
   pointer: { current: Point };
+  focus?: NailFocus;
+  fill: number;
+  tilt: number;
 }) {
   const { size } = useThree();
 
@@ -92,9 +100,13 @@ function Nails({
     canvas.style.opacity = plane ? getComputedStyle(plane).opacity : "1";
 
     const cards = new Map<string, HTMLElement>();
-    stage.querySelectorAll<HTMLElement>("[data-live-card]").forEach((card) => {
-      if (card.dataset.slug) cards.set(card.dataset.slug, card);
-    });
+    if (focus) {
+      if (focus.current) cards.set(focus.current.slug, focus.current.el);
+    } else {
+      stage.querySelectorAll<HTMLElement>("[data-live-card]").forEach((card) => {
+        if (card.dataset.slug) cards.set(card.dataset.slug, card);
+      });
+    }
 
     nails.forEach((nail, i) => {
       const card = cards.get(nail.slug);
@@ -104,7 +116,7 @@ function Nails({
       nail.group.visible = onScreen;
       if (!onScreen || !box) return;
 
-      const isHovered = hovered.current === nail.slug;
+      const isHovered = focus ? focus.current?.slug === nail.slug : hovered?.current === nail.slug;
       nail.lift += ((isHovered ? 1 : 0) - nail.lift) * 0.12;
 
       nail.group.position.set(
@@ -114,9 +126,9 @@ function Nails({
       );
       // The tilted card's on-screen box is larger than the card itself, so the
       // nail takes a smaller share of it to sit inside the frame.
-      nail.group.scale.setScalar(Math.min(box.width / GRID_WIDTH, box.height / NAIL_LENGTH) * 0.62);
+      nail.group.scale.setScalar(Math.min(box.width / GRID_WIDTH, box.height / NAIL_LENGTH) * fill);
       // Tilted with the grid; the hovered nail stops swaying and squares up a little.
-      nail.group.rotation.set(0, Math.sin(t * 0.6 + i) * 0.28 * (1 - nail.lift), -0.2 + nail.lift * 0.08);
+      nail.group.rotation.set(0, Math.sin(t * 0.6 + i) * 0.28 * (1 - nail.lift), tilt + nail.lift * 0.08);
 
       const u = nail.uniforms;
       u.uTime.value = t;
@@ -144,13 +156,22 @@ export default function CollectionNails({
   root,
   hovered,
   pointer,
+  focus,
+  fill = 0.62,
+  tilt = -0.2,
   onReady,
   onFail,
 }: {
   slugs: string[];
   root: RefObject<HTMLElement | null>;
-  hovered: { current: string | null };
+  hovered?: { current: string | null };
   pointer: { current: Point };
+  /** Single-card mode instead of tracking every [data-live-card]. */
+  focus?: NailFocus;
+  /** Share of the card's on-screen box the nail fills (tilted cards need less). */
+  fill?: number;
+  /** Resting roll in radians, matching the cards' tilt. */
+  tilt?: number;
   onReady: () => void;
   onFail: () => void;
 }) {
@@ -203,7 +224,18 @@ export default function CollectionNails({
       <ambientLight intensity={0.45} />
       <directionalLight position={[2, 3, 2.5]} intensity={1.7} />
       <directionalLight position={[-3, 1, -2]} intensity={1.1} />
-      {maps && tokens && <Nails maps={maps} tokens={tokens} root={root} hovered={hovered} pointer={pointer} />}
+      {maps && tokens && (
+        <Nails
+          maps={maps}
+          tokens={tokens}
+          root={root}
+          hovered={hovered}
+          pointer={pointer}
+          focus={focus}
+          fill={fill}
+          tilt={tilt}
+        />
+      )}
     </Canvas>
   );
 }

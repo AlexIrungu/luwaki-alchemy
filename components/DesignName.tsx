@@ -17,11 +17,12 @@ const ACCENT: Record<string, string> = {
  * collection's colour draws in underneath.
  */
 export function DesignName({ name, collection }: { name: string; collection: string | null }) {
-  const ref = useRef<HTMLHeadingElement>(null);
+  // Scoped to the wrapper: the rule sits beside the heading, not inside it.
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const heading = ref.current;
-    if (!heading || prefersReducedMotion()) return;
+    const wrapper = ref.current;
+    if (!wrapper || prefersReducedMotion()) return;
 
     const ctx = gsap.context(() => {
       gsap
@@ -36,14 +37,14 @@ export function DesignName({ name, collection }: { name: string; collection: str
           stagger: 0.035,
         })
         .from("[data-rule]", { scaleX: 0, transformOrigin: "0% 50%", duration: 0.8, ease: "power3.inOut" }, 0.35);
-    }, heading);
+    }, wrapper);
 
     return () => ctx.revert();
   }, [name]);
 
   return (
-    <div>
-      <h1 ref={ref} aria-label={name} className="mt-3 font-display text-5xl [perspective:600px]">
+    <div ref={ref}>
+      <h1 aria-label={name} className="mt-3 font-display text-5xl [perspective:600px]">
         {name.split(" ").map((word, w) => (
           // Words stay whole so a long name wraps between words, never mid-word.
           <span key={w} aria-hidden="true" className="inline-block whitespace-nowrap">
