@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { Canvas } from "@react-three/fiber";
-import { Bounds, Html, OrbitControls, useGLTF } from "@react-three/drei";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { Bounds, Float, Html, OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { modelUrl, type Quality } from "@/lib/models";
 import { DRACO_PATH, applyFinish, eachMaterial, prepareNail } from "@/lib/three/nail";
@@ -18,6 +18,38 @@ function Nail({ slug, quality, color }: { slug: string; quality: Quality; color:
 
   // Rhino exports Z-up; stand the nail along the screen's vertical axis.
   return <primitive object={model} rotation={[-Math.PI / 2, 0, 0]} />;
+}
+
+/**
+ * The nail is the page's character (rudlundschwarm's animated figures): it
+ * turns in once, then keeps breathing — a slow float and sway on top of the
+ * orbit turn. Motion is on the group transform only, never the geometry.
+ */
+function Alive({ animate, children }: { animate: boolean; children: ReactNode }) {
+  const entrance = useRef<THREE.Group>(null);
+  const born = useRef<number | null>(null);
+
+  useFrame((state) => {
+    const group = entrance.current;
+    if (!group) return;
+    if (!animate) {
+      group.rotation.y = 0;
+      return;
+    }
+    born.current ??= state.clock.elapsedTime;
+    const k = Math.min(1, (state.clock.elapsedTime - born.current) / 1.6);
+    const ease = 1 - Math.pow(1 - k, 4);
+    // Turn only: Bounds fits against world scale, so scaling in would mis-frame the nail.
+    group.rotation.y = (1 - ease) * -Math.PI * 1.5;
+  });
+
+  return (
+    <group ref={entrance}>
+      <Float enabled={animate} speed={1.6} rotationIntensity={0.35} floatIntensity={0.6} floatingRange={[-0.0012, 0.0012]}>
+        {children}
+      </Float>
+    </group>
+  );
 }
 
 function Loading() {
@@ -58,8 +90,10 @@ export default function NailViewer({ slug, color }: { slug: string; color: strin
       <directionalLight position={[-2, 1, -2.5]} intensity={1} />
 
       <Suspense fallback={<Loading />}>
-        <Bounds fit clip observe margin={1.2} key={`${slug}-${quality}`}>
-          <Nail slug={slug} quality={quality} color={color} />
+        <Bounds fit clip observe margin={1.05} key={`${slug}-${quality}`}>
+          <Alive animate={autoRotate}>
+            <Nail slug={slug} quality={quality} color={color} />
+          </Alive>
         </Bounds>
       </Suspense>
 

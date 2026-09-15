@@ -6,6 +6,10 @@ import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SmoothScroll } from "@/components/motion/SmoothScroll";
 import "./globals.css";
 
+// Applies a stored theme choice before first paint. Keep the key in step with
+// THEME_KEY in components/layout/ThemeToggle.tsx.
+const THEME_SCRIPT = `try{var t=localStorage.getItem("luwaki.theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
+
 // Placeholder type system — replace when Lucy supplies the brand fonts.
 const display = Cormorant_Garamond({
   subsets: ["latin"],
@@ -22,7 +26,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
+    // suppressHydrationWarning: the theme script sets data-theme before React hydrates.
+    <html lang="en" suppressHydrationWarning className={`${display.variable} ${sans.variable} ${mono.variable}`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="font-sans antialiased">
         <SmoothScroll />
         <CartProvider>

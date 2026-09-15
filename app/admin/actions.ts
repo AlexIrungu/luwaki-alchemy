@@ -243,6 +243,8 @@ export async function setOrderStatus(orderId: string, status: string): Promise<A
 
   const parsed = z.enum(ORDER_STATUSES).safeParse(status);
   if (!parsed.success) return { error: "Unknown status." };
+  // Shipping needs a courier on record — that goes through dispatchOrder.
+  if (parsed.data === "shipped") return { error: "Use the dispatch form to mark an order shipped." };
 
   const { error } = await supabase
     .from("orders").update({ status: parsed.data }).eq("id", orderId);
@@ -294,5 +296,79 @@ export async function setMessageHandled(messageId: string, handled: boolean) {
 
   await supabase.from("contact_messages").update({ handled }).eq("id", messageId);
   revalidatePath("/admin/messages");
+  return { ok: true };
+}
+
+const priceUpdates = z
+  .array(
+    z.object({
+      id: z.uuid(),
+      // Per-NAIL price in whole KES, VAT-exclusive.
+      unit_price_kes: z.number().int("Whole shillings only.").min(0).max(1_000_000),
+    }),
+  )
+  .min(1, "Nothing to save.")
+  .max(500);
+
+/**
+ * Saves many design prices at once — the catalogue launches on placeholder
+ * prices, and 30 designs a month shouldn't mean 30 edit pages. Shape prices
+ * left null keep inheriting from the design, so they follow automatically.
+ */
+export async function setPrices(updates: { id: string; unit_price_kes: number }[]): Promise<AdminState> {
+  const { supabase, error: auth } = await requireAdmin();
+  if (auth) return { error: auth };
+
+  const parsed = priceUpdates.safeParse(updates);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const now = new Date().toISOString();
+  const results = await Promise.all(
+    parsed.data.map(({ id, unit_price_kes }) =>
+      supabase.from("products").update({ unit_price_kes, updated_at: now }).eq("id", id),
+    ),
+  );
+  const failed = results.filter((r) => r.error);
+  if (failed.length) return { error: `${failed.length} of ${results.length} prices failed: ${failed[0].error!.message}` };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+const dispatchFields = z.object({
+  order_id: z.uuid(),
+  courier: z.string().trim().min(2, "Who is delivering it?").max(120),
+  tracking_ref: z.string().trim().max(120).optional(),
+});
+
+/**
+ * The only way an order becomes 'shipped': it records the courier (and a
+ * tracking number when there is one) so the customer's order page can show it.
+ * Only paid or in-production orders can be dispatched.
+ */
+export async function dispatchOrder(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const { supabase, error: auth } = await requireAdmin();
+  if (auth) return { error: auth };
+
+  const parsed = dispatchFields.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { order_id, courier, tracking_ref } = parsed.data;
+
+  const { data, error } = await supabase
+    .from("orders")
+    .update({
+      status: "shipped",
+      courier,
+      tracking_ref: tracking_ref || null,
+      dispatched_at: new Date().toISOString(),
+    })
+    .eq("id", order_id)
+    .in("status", ["paid", "in_production"])
+    .select("id");
+  if (error) return { error: error.message };
+  if (!data?.length) return { error: "Only paid or in-production orders can be dispatched." };
+
+  revalidatePath("/admin/orders", "layout");
+  revalidatePath("/account/orders");
   return { ok: true };
 }

@@ -1,11 +1,13 @@
 <!doctype html>
 <!--
   Hero still renderer. Loaded by scripts/hero/render.py from a static server at
-  the project root — not part of the Next app. Mirrors the material logic in
+  the project root — not part of the Next app. Renders on a transparent
+  background under neutral white light: the site has light and dark themes, and
+  brand colours belong to the site, never to a design. Mirrors the material logic in
   components/three/NailViewer.tsx, but software-rendered browsers can't do
   transmission, so the resin shell is faked with plain opacity here.
 -->
-<html><head><style>html,body{margin:0;background:#08070a}canvas{display:block}</style>
+<html><head><style>html,body{margin:0}canvas{display:block}</style>
 <script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script></head>
 <body><script type="module">
 import * as THREE from "three";
@@ -15,7 +17,8 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 const q = new URLSearchParams(location.search);
 const W = +q.get("w"), H = +q.get("h");
-const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+r.setClearColor(0x000000, 0);
 r.setSize(W, H);
 r.toneMapping = THREE.ACESFilmicToneMapping;
 r.toneMappingExposure = 1.1;
@@ -23,12 +26,11 @@ r.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(r.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(q.get("bg"));
 const pm = new THREE.PMREMGenerator(r);
 scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.add(new THREE.AmbientLight("#ffffff", 0.35));
-const key = new THREE.DirectionalLight(q.get("key"), 1.5); key.position.set(2, 3, 2.5); scene.add(key);
-const rim = new THREE.DirectionalLight(q.get("rim"), 2.2); rim.position.set(-3, 1, -2); scene.add(rim);
+const key = new THREE.DirectionalLight("#ffffff", 1.5); key.position.set(2, 3, 2.5); scene.add(key);
+const rim = new THREE.DirectionalLight("#ffffff", 2.2); rim.position.set(-3, 1, -2); scene.add(rim);
 
 const gltf = await new GLTFLoader()
   .setDRACOLoader(new DRACOLoader().setDecoderPath("/public/draco/"))

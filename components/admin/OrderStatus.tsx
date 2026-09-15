@@ -25,7 +25,10 @@ export function OrderStatus({ orderId, status }: { orderId: string; status: stri
         className="border border-line bg-panel px-4 py-3 font-mono text-[11px] tracking-[0.15em] outline-none focus:border-ink-faint disabled:opacity-40"
       >
         {STATUSES.map((s) => (
-          <option key={s} value={s}>{s.replace(/_/g, " ").toUpperCase()}</option>
+          // "shipped" is set by the dispatch form, which records the courier.
+          <option key={s} value={s} disabled={s === "shipped" && status !== "shipped"}>
+            {s === "shipped" ? "DISPATCHED" : s.replace(/_/g, " ").toUpperCase()}
+          </option>
         ))}
       </select>
       {error && <p role="alert" className="mt-2 font-mono text-[10px] text-danger">{error}</p>}

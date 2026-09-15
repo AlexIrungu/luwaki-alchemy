@@ -18,5 +18,17 @@ export default async function CheckoutPage() {
 
   if ((measured ?? 0) < 10) redirect("/account/measurements");
 
-  return <CheckoutView email={user.email!} live={isLive()} />;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, phone")
+    .eq("id", user.id)
+    .single<{ full_name: string | null; phone: string | null }>();
+
+  return (
+    <CheckoutView
+      email={user.email!}
+      live={isLive()}
+      defaults={{ name: profile?.full_name ?? "", phone: profile?.phone ?? "" }}
+    />
+  );
 }

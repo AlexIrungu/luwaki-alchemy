@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { isLive, payments } from "@/lib/payments/provider";
 import { formatKES } from "@/lib/money";
+import { VAT_LABEL } from "@/lib/tax";
 import { ClearCart } from "@/components/ClearCart";
 
 export const metadata: Metadata = { title: "Order placed" };
@@ -22,7 +23,7 @@ export default async function CheckoutSuccessPage({
 
   const { data: order } = await supabase
     .from("orders")
-    .select("id, reference, status, total_kes")
+    .select("id, reference, status, vat_kes, total_kes")
     .eq("reference", reference)
     .single();
 
@@ -66,13 +67,17 @@ export default async function CheckoutSuccessPage({
             : "We have not had confirmation of your payment yet. If you completed it, this will update shortly."}
         </p>
 
-        <dl className="mt-10 grid gap-4 border border-line bg-panel p-5 font-mono text-[11px] sm:grid-cols-2">
+        <dl className="mt-10 grid gap-4 border border-line bg-panel p-5 font-mono text-[11px] sm:grid-cols-3">
           <div>
             <dt className="text-ink-faint">REFERENCE</dt>
             <dd className="mt-1">{order.reference}</dd>
           </div>
           <div>
-            <dt className="text-ink-faint">TOTAL</dt>
+            <dt className="text-ink-faint">{VAT_LABEL.toUpperCase()}</dt>
+            <dd className="mt-1">{formatKES(order.vat_kes)}</dd>
+          </div>
+          <div>
+            <dt className="text-ink-faint">TOTAL (INCL. VAT)</dt>
             <dd className="mt-1">{formatKES(order.total_kes)}</dd>
           </div>
         </dl>

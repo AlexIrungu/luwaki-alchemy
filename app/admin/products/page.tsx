@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { formatKES } from "@/lib/money";
+import { PriceTable } from "@/components/admin/PriceTable";
 
 type Row = {
   id: string;
@@ -18,7 +18,7 @@ export default async function AdminProductsPage() {
   const { data } = await supabase
     .from("products")
     .select("id, name, slug, unit_price_kes, is_published, collections(name), product_variants(id), product_media(id)")
-    .order("created_at", { ascending: false })
+    .order("name")
     .returns<Row[]>();
 
   return (
@@ -38,31 +38,17 @@ export default async function AdminProductsPage() {
           No designs yet. Add the first one — the five shape variants are created for you.
         </p>
       ) : (
-        <ul className="mt-10 divide-y divide-line-soft border-y border-line-soft">
-          {data.map((p) => (
-            <li key={p.id}>
-              <Link href={`/admin/products/${p.id}`} className="flex items-center gap-4 py-4 hover:opacity-80">
-                <span
-                  title={p.is_published ? "Published" : "Draft"}
-                  className={`size-2 shrink-0 rounded-full ${p.is_published ? "bg-resin" : "bg-ink-faint"}`}
-                />
-                <span className="flex-1 font-display text-xl">{p.name}</span>
-                <span className="w-28 font-mono text-[10px] tracking-[0.2em] text-ink-faint">
-                  {p.collections?.name ?? "—"}
-                </span>
-                <span className="w-20 font-mono text-[10px] text-ink-faint">
-                  {p.product_variants.length} shapes
-                </span>
-                <span className="w-20 font-mono text-[10px] text-ink-faint">
-                  {p.product_media.length} images
-                </span>
-                <span className="w-28 text-right font-mono text-sm">
-                  {formatKES(p.unit_price_kes)}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <PriceTable
+          rows={data.map((p) => ({
+            id: p.id,
+            name: p.name,
+            collection: p.collections?.name ?? null,
+            isPublished: p.is_published,
+            shapes: p.product_variants.length,
+            images: p.product_media.length,
+            priceKES: p.unit_price_kes,
+          }))}
+        />
       )}
     </div>
   );

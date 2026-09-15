@@ -40,6 +40,7 @@ uniform float uProgress;
 uniform vec2 uResolution;
 uniform vec2 uImage;
 uniform vec3 uGlow;
+uniform vec3 uGround;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -69,7 +70,9 @@ void main() {
   vec2 fromUv = (uv - 0.5) * (1.0 + uProgress * 0.05) + 0.5 + warp;
   vec2 toUv = (uv - 0.5) * (1.06 - uProgress * 0.06) + 0.5 - warp;
 
-  vec3 color = mix(texture2D(uTo, toUv).rgb, texture2D(uFrom, fromUv).rgb, m);
+  // Stills are transparent so they sit on either theme: composite over the ground.
+  vec4 a = texture2D(uTo, toUv), b = texture2D(uFrom, fromUv);
+  vec3 color = mix(mix(uGround, a.rgb, a.a), mix(uGround, b.rgb, b.a), m);
   color += uGlow * pow(edge, 3.0) * 0.35 * step(0.001, uProgress) * step(uProgress, 0.999);
   gl_FragColor = vec4(color, 1.0);
 }`;
@@ -283,6 +286,17 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
       draw();
     };
 
+    // The ground follows the theme, which can change while the loop runs.
+    const paintGround = () => {
+      gl.uniform3f(u("uGround"), ...tokenRGB("--color-ground"));
+      draw();
+    };
+    paintGround();
+    const themeObserver = new MutationObserver(paintGround);
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+    scheme.addEventListener("change", paintGround);
+
     const bind = (unit: number, slide: number) => {
       gl.activeTexture(gl.TEXTURE0 + unit);
       gl.bindTexture(gl.TEXTURE_2D, textures[slide]);
@@ -295,7 +309,7 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
       return texture;
     };
 
@@ -357,6 +371,8 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
       disposed = true;
       timeline?.kill();
       observer.disconnect();
+      themeObserver.disconnect();
+      scheme.removeEventListener("change", paintGround);
       visibility.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       textures.forEach((t) => gl.deleteTexture(t));

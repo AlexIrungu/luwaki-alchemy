@@ -18,13 +18,22 @@ const NailViewer = dynamic(() => import("./NailViewer"), {
   ),
 });
 
-export function DesignViewer({ slug, designName }: { slug: string; designName: string }) {
+export function DesignViewer({
+  slug,
+  designName,
+  bare = false,
+}: {
+  slug: string;
+  designName: string;
+  /** Drop the panel frame so the nail floats free over the page (DESCRIPTION page). */
+  bare?: boolean;
+}) {
   const [colorIndex, setColorIndex] = useState<number | null>(null);
   const color = colorIndex === null ? null : SANZO[colorIndex];
 
   return (
     <>
-      <div className="relative aspect-square border border-line bg-panel">
+      <div className={`relative aspect-square ${bare ? "" : "border border-line bg-panel"}`}>
         <NailViewer slug={slug} color={color?.hex ?? null} />
       </div>
       <p className="mt-3 font-mono text-[10px] tracking-[0.25em] text-ink-faint">

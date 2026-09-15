@@ -23,7 +23,10 @@ export function AddToSet({
   variants: Variant[];
 }) {
   const { cart, fill } = useCart();
-  const [variantId, setVariantId] = useState(variants[0]?.id ?? "");
+  // Coffin is the only shape Kent has delivered so far, so it leads.
+  const [variantId, setVariantId] = useState(
+    (variants.find((v) => v.options.shape === "coffin") ?? variants[0])?.id ?? "",
+  );
 
   const variant = variants.find((v) => v.id === variantId);
   const shape = variant?.options.shape;

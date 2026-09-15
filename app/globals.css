@@ -9,19 +9,29 @@
  * set to its nearest colour in Sanzo Wada's Dictionary of Color Combinations,
  * and the three are tied together by his original plates: Pale Burnt Lake
  * pairs with Venice Green in plate 283 and with Yellow Ocher in plate 124.
- * Burgundy is too dark for text on the ground — accents and borders only.
- * The near-black ground and the fonts in app/layout.tsx are placeholders.
+ * THEMES (client, 2026-09-15): light by default, dark as the alternative. The
+ * @theme values below are the light set; the dark set overrides the same
+ * variables further down, so every utility follows without a `dark:` variant.
+ * Brand colours are the SITE's, never a design's. On the pale ground turquoise
+ * and gold are too light for text — `resin` and `flag` are their text-safe
+ * versions, deepened for light and bright for dark. The warm paper ground and the fonts in
+ * app/layout.tsx are placeholders until Lucy's sheet lands.
  */
 @theme {
-  --color-ground: #08070a;
-  --color-panel: #101016;
-  --color-panel-2: #17171f;
-  --color-line: #26262f;
-  --color-line-soft: #1b1b22;
+  --color-ground: #f5f1eb;
+  --color-panel: #ece6dd;
+  --color-panel-2: #e3dcd1;
+  --color-line: #d2c9bc;
+  --color-line-soft: #e2dbd0;
 
-  --color-ink: #f2efe9;
-  --color-ink-dim: #a09aa8;
-  --color-ink-faint: #6b6575;
+  --color-ink: #17131a;
+  --color-ink-dim: #4f4855;
+  --color-ink-faint: #756d7b;
+
+  /* The resin shell colour in WebGL — independent of the text colour. */
+  --color-shell: #eef2f2;
+  /* Stays white in both themes: the header's mix-blend-difference needs it. */
+  --color-invert: #ffffff;
 
   /* Brand colours — Sanzo Wada names in comments. */
   --color-burgundy: #802626; /* Pale Burnt Lake */
@@ -33,17 +43,51 @@
   --color-opulence: var(--color-gold);
   --color-noir: var(--color-burgundy);
 
-  --color-resin: var(--color-turquoise);
-  --color-flag: var(--color-gold);
-  --color-danger: #e06060;
+  --color-resin: #2b7f79;
+  --color-flag: #8a6510;
+  --color-danger: #b3261e;
 
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-display: var(--font-cormorant), Georgia, serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 }
 
-html {
+:root {
+  color-scheme: light;
+}
+
+/* The dark set, applied by the visitor's system unless they chose light… */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-ground: #08070a;
+    --color-panel: #101016;
+    --color-panel-2: #17171f;
+    --color-line: #26262f;
+    --color-line-soft: #1b1b22;
+    --color-ink: #f2efe9;
+    --color-ink-dim: #a09aa8;
+    --color-ink-faint: #6b6575;
+    --color-resin: #62c6bf;
+    --color-flag: #e2b540;
+    --color-danger: #e06060;
+  }
+}
+
+/* …and by the toggle, which wins in both directions. */
+:root[data-theme="dark"] {
   color-scheme: dark;
+  --color-ground: #08070a;
+  --color-panel: #101016;
+  --color-panel-2: #17171f;
+  --color-line: #26262f;
+  --color-line-soft: #1b1b22;
+  --color-ink: #f2efe9;
+  --color-ink-dim: #a09aa8;
+  --color-ink-faint: #6b6575;
+  --color-resin: #62c6bf;
+  --color-flag: #e2b540;
+  --color-danger: #e06060;
 }
 
 body {

@@ -5,6 +5,8 @@ import { SLOTS, slotKey, slotLabel } from "@/lib/catalogue";
 import { useCart } from "@/lib/cart/CartProvider";
 import { checkoutBlocks } from "@/lib/cart/logic";
 import { formatKES } from "@/lib/money";
+import { heroSrc } from "@/lib/hero";
+import { VAT_LABEL, orderTotals } from "@/lib/tax";
 
 /** CART — site map item 11. Ten placeholders; an empty slot blocks checkout. */
 export function CartView({ signedIn, measured }: { signedIn: boolean; measured: number }) {
@@ -12,6 +14,9 @@ export function CartView({ signedIn, measured }: { signedIn: boolean; measured: 
   if (!hydrated) return <div className="min-h-screen px-6 pt-40" />;
 
   const blocks = checkoutBlocks(cart, { signedIn, measured });
+  // Shipping is still unscoped, so the cart shows goods + VAT; the server
+  // recomputes everything at checkout.
+  const totals = orderTotals(subtotal, 0);
 
   return (
     <div className="px-6 pb-24 pt-40">
@@ -28,6 +33,13 @@ export function CartView({ signedIn, measured }: { signedIn: boolean; measured: 
                 </span>
                 {item ? (
                   <>
+                    <Link
+                      href={`/designs/${item.productSlug}`}
+                      className="block aspect-[3/4] w-10 shrink-0 overflow-hidden border border-line bg-panel"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- static stills shared with the hero shader */}
+                      <img src={heroSrc(item.productSlug)} alt="" className="h-full w-full scale-125 object-cover" />
+                    </Link>
                     <span className="flex-1 font-display text-xl">{item.productName}</span>
                     <span className="font-mono text-[11px] text-ink-dim">
                       {item.shape.toUpperCase()}
@@ -52,10 +64,21 @@ export function CartView({ signedIn, measured }: { signedIn: boolean; measured: 
           })}
         </ul>
 
-        <div className="mt-8 flex justify-between font-mono text-sm">
-          <span className="text-ink-dim">SUBTOTAL</span>
-          <span>{formatKES(subtotal)}</span>
-        </div>
+        <dl className="mt-8 space-y-2 font-mono text-sm">
+          <div className="flex justify-between">
+            <dt className="text-ink-dim">SUBTOTAL</dt>
+            <dd>{formatKES(totals.subtotal)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-ink-dim">{VAT_LABEL.toUpperCase()}</dt>
+            <dd>{formatKES(totals.vat)}</dd>
+          </div>
+          <div className="flex justify-between border-t border-line pt-3 text-base">
+            <dt>TOTAL</dt>
+            <dd>{formatKES(totals.total)}</dd>
+          </div>
+          <p className="pt-1 text-[10px] text-ink-faint">Prices exclude VAT. Shipping is confirmed before dispatch.</p>
+        </dl>
 
         {blocks.length > 0 && (
           <ul className="mt-8 space-y-2 border border-line bg-panel p-5 font-mono text-[11px] text-ink-dim">

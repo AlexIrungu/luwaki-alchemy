@@ -11,6 +11,8 @@ type Row = {
   status: string;
   total_kes: number;
   created_at: string;
+  courier: string | null;
+  tracking_ref: string | null;
   order_items: {
     id: string;
     slot_hand: Hand | null;
@@ -36,7 +38,7 @@ export default async function AccountOrdersPage() {
 
   const { data: orders } = await supabase
     .from("orders")
-    .select("id, reference, status, total_kes, created_at, order_items(id, slot_hand, slot_finger, product_name, options)")
+    .select("id, reference, status, total_kes, created_at, courier, tracking_ref, order_items(id, slot_hand, slot_finger, product_name, options)")
     .eq("profile_id", user!.id)
     .order("created_at", { ascending: false })
     .returns<Row[]>();
@@ -65,6 +67,12 @@ export default async function AccountOrdersPage() {
                       {STATUS_COPY[order.status] ?? order.status}
                     </span>
                   </div>
+                  {order.status === "shipped" && order.courier && (
+                    <p className="mt-3 font-mono text-[11px] text-resin">
+                      With {order.courier}
+                      {order.tracking_ref && ` · tracking ${order.tracking_ref}`}
+                    </p>
+                  )}
 
                   <ul className="mt-5 grid gap-x-6 gap-y-2 sm:grid-cols-2">
                     {SLOTS.map((slot) => {
@@ -86,7 +94,8 @@ export default async function AccountOrdersPage() {
                   </ul>
 
                   <p className="mt-5 border-t border-line-soft pt-4 text-right font-mono text-sm">
-                    {formatKES(order.total_kes)}
+                    {formatKES(order.total_kes)}{" "}
+                    <span className="text-[10px] text-ink-faint">INCL. VAT</span>
                   </p>
                 </li>
               );

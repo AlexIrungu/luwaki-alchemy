@@ -5,6 +5,7 @@ import { z } from "zod";
 import { FINGERS, HANDS, SLOTS, slotKey } from "@/lib/catalogue";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { newReference, shippingKES, type MeasurementSnapshot } from "@/lib/orders";
+import { orderTotals } from "@/lib/tax";
 import { payments } from "@/lib/payments/provider";
 
 export type CheckoutState = { error?: string };
@@ -19,6 +20,15 @@ const submitted = z.object({
     .length(10, "A set is ten nails."),
   packaging: z.string().max(120).optional(),
   notes: z.string().max(1000).optional(),
+});
+
+/** Where the set goes. Collected at checkout, snapshotted onto the order. */
+const delivery = z.object({
+  name: z.string().trim().min(2, "Who should we deliver to?"),
+  phone: z.string().trim().min(7, "A phone number for the courier."),
+  county: z.string().trim().min(2, "Which county?"),
+  town: z.string().trim().min(2, "Which town or area?"),
+  address: z.string().trim().min(4, "Street, building or a landmark."),
 });
 
 /**
@@ -44,7 +54,18 @@ export async function startCheckout(
 
   const parsed = submitted.safeParse(payload);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const { slots, packaging, notes } = parsed.data;
+  const { slots } = parsed.data;
+  const packaging = String(formData.get("packaging") ?? "") || parsed.data.packaging;
+  const notes = String(formData.get("notes") ?? "") || parsed.data.notes;
+
+  const address = delivery.safeParse({
+    name: formData.get("delivery_name"),
+    phone: formData.get("delivery_phone"),
+    county: formData.get("delivery_county"),
+    town: formData.get("delivery_town"),
+    address: formData.get("delivery_address"),
+  });
+  if (!address.success) return { error: address.error.issues[0].message };
 
   // Exactly one design per finger, all ten fingers present.
   const keys = new Set(slots.map(slotKey));
@@ -103,8 +124,11 @@ export async function startCheckout(
     };
   });
 
-  const subtotal = items.reduce((sum, item) => sum + item.unit_price_kes, 0);
-  const shipping = shippingKES();
+  // VAT is added on top of the net prices (VAT-exclusive catalogue).
+  const { subtotal, shipping, vat, total } = orderTotals(
+    items.reduce((sum, item) => sum + item.unit_price_kes, 0),
+    shippingKES(),
+  );
   const reference = newReference();
 
   // Customers have no insert policy on `orders` by design — an order is
@@ -119,7 +143,9 @@ export async function startCheckout(
       status: "pending_payment",
       subtotal_kes: subtotal,
       shipping_kes: shipping,
-      total_kes: subtotal + shipping,
+      vat_kes: vat,
+      total_kes: total,
+      shipping_address: address.data,
       measurements,
       packaging: packaging || null,
       notes: notes || null,
@@ -143,7 +169,7 @@ export async function startCheckout(
   try {
     ({ authorizationUrl } = await payments.initialise({
       reference,
-      amountKES: subtotal + shipping,
+      amountKES: total,
       email: user.email!,
       callbackUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout/success?reference=${reference}`,
     }));

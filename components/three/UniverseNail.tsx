@@ -177,7 +177,7 @@ export default function UniverseNail({
     const css = getComputedStyle(document.documentElement);
     setTokens({
       glow: css.getPropertyValue("--color-turquoise").trim(),
-      resin: css.getPropertyValue("--color-ink").trim(),
+      resin: css.getPropertyValue("--color-shell").trim(),
       ground: css.getPropertyValue("--color-ground").trim(),
     });
     let cancelled = false;
