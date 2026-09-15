@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatKES } from "@/lib/money";
+import { StatusChip } from "@/components/admin/StatusChip";
 
 /** Orders that count as sales: money received and not given back. */
 const SOLD = ["paid", "in_production", "shipped", "delivered"];
@@ -60,7 +61,7 @@ export default async function AdminPage() {
   ];
 
   return (
-    <div className="mt-12">
+    <div className="mt-6">
       <h1 className="font-display text-4xl tracking-[0.15em]">OVERVIEW</h1>
 
       {sales.error && (
@@ -113,10 +114,8 @@ export default async function AdminPage() {
                 <li key={o.id}>
                   <Link href={`/admin/orders/${o.id}`} className="flex items-center gap-4 py-3 hover:opacity-80">
                     <span className="flex-1 truncate text-sm">{o.profiles?.full_name ?? o.reference}</span>
-                    <span className="font-mono text-[10px] tracking-[0.15em] text-ink-dim">
-                      {o.status.replace(/_/g, " ").toUpperCase()}
-                    </span>
-                    <span className="w-24 text-right font-mono text-sm">{formatKES(o.total_kes)}</span>
+                    <StatusChip status={o.status} />
+                    <span className="w-24 text-right text-sm">{formatKES(o.total_kes)}</span>
                   </Link>
                 </li>
               ))}

@@ -6,6 +6,7 @@ import { isLive, payments } from "@/lib/payments/provider";
 import { formatKES } from "@/lib/money";
 import { VAT_LABEL } from "@/lib/tax";
 import { ClearCart } from "@/components/ClearCart";
+import { logActivity } from "@/lib/activity";
 
 export const metadata: Metadata = { title: "Order placed" };
 
@@ -43,11 +44,23 @@ export default async function CheckoutSuccessPage({
 
     if (confirmed.paid) {
       const admin = createAdminClient();
-      await admin
+      const { data: moved } = await admin
         .from("orders")
         .update({ status: "paid", paid_at: new Date().toISOString() })
         .eq("id", order.id)
-        .eq("status", "pending_payment");
+        .eq("status", "pending_payment")
+        .select("id");
+      if (moved?.length) {
+        await logActivity(admin, {
+          actor_id: null,
+          entity_type: "order",
+          entity_id: order.id,
+          action: "paid",
+          from_status: "pending_payment",
+          to_status: "paid",
+          note: simulated && !isLive() ? "Test mode — simulated payment." : "Confirmed with Paystack on the success page.",
+        });
+      }
       status = "paid";
     }
   }

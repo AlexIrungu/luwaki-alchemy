@@ -6,6 +6,7 @@ import { FINGERS, HANDS, SLOTS, slotKey } from "@/lib/catalogue";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { newReference, shippingKES, type MeasurementSnapshot } from "@/lib/orders";
 import { orderTotals } from "@/lib/tax";
+import { logActivity } from "@/lib/activity";
 import { payments } from "@/lib/payments/provider";
 
 export type CheckoutState = { error?: string };
@@ -164,6 +165,14 @@ export async function startCheckout(
     await admin.from("orders").delete().eq("id", order.id);
     return { error: itemsError.message };
   }
+
+  await logActivity(admin, {
+    actor_id: user.id,
+    entity_type: "order",
+    entity_id: order.id,
+    action: "placed",
+    to_status: "pending_payment",
+  });
 
   let authorizationUrl: string;
   try {

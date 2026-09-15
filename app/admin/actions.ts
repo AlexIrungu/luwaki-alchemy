@@ -6,6 +6,7 @@ import { z } from "zod";
 import { SHAPES } from "@/lib/catalogue";
 import { slugify } from "@/lib/slug";
 import { createClient } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/activity";
 
 export type AdminState = { error?: string; ok?: boolean };
 
@@ -17,13 +18,13 @@ export type AdminState = { error?: string; ok?: boolean };
 async function requireAdmin() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { supabase, error: "Not signed in." as const };
+  if (!user) return { supabase, userId: null, error: "Not signed in." as const };
 
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return { supabase, error: "Not an admin." as const };
+  if (profile?.role !== "admin") return { supabase, userId: null, error: "Not an admin." as const };
 
-  return { supabase, error: null };
+  return { supabase, userId: user.id, error: null };
 }
 
 const productFields = z.object({
@@ -67,7 +68,7 @@ export async function createProduct(_prev: AdminState, formData: FormData): Prom
 }
 
 export async function updateProduct(_prev: AdminState, formData: FormData): Promise<AdminState> {
-  const { supabase, error: auth } = await requireAdmin();
+  const { supabase, userId, error: auth } = await requireAdmin();
   if (auth) return { error: auth };
 
   const id = z.uuid().safeParse(formData.get("id"));
@@ -76,11 +77,23 @@ export async function updateProduct(_prev: AdminState, formData: FormData): Prom
   const parsed = productFields.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
+  const { data: before } = await supabase.from("products").select("unit_price_kes").eq("id", id.data).single();
+
   const { error } = await supabase
     .from("products")
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq("id", id.data);
   if (error) return { error: error.message };
+
+  if (before && before.unit_price_kes !== parsed.data.unit_price_kes) {
+    await logActivity(supabase, {
+      actor_id: userId,
+      entity_type: "product",
+      entity_id: id.data,
+      action: "price_changed",
+      detail: { from_kes: before.unit_price_kes, to_kes: parsed.data.unit_price_kes },
+    });
+  }
 
   revalidatePath(`/admin/products/${id.data}`);
   return { ok: true };
@@ -152,7 +165,7 @@ export async function setVariantPublished(variantId: string, isPublished: boolea
  * or has nothing to show.
  */
 export async function setPublished(productId: string, publish: boolean): Promise<AdminState> {
-  const { supabase, error: auth } = await requireAdmin();
+  const { supabase, userId, error: auth } = await requireAdmin();
   if (auth) return { error: auth };
 
   if (publish) {
@@ -172,6 +185,13 @@ export async function setPublished(productId: string, publish: boolean): Promise
     .update({ is_published: publish, published_at: publish ? new Date().toISOString() : null })
     .eq("id", productId);
   if (error) return { error: error.message };
+
+  await logActivity(supabase, {
+    actor_id: userId,
+    entity_type: "product",
+    entity_id: productId,
+    action: publish ? "published" : "unpublished",
+  });
 
   revalidatePath("/admin/products", "layout");
   revalidatePath("/collections", "layout");
@@ -237,8 +257,11 @@ const ORDER_STATUSES = [
   "pending_payment", "paid", "in_production", "shipped", "delivered", "cancelled", "refunded",
 ] as const;
 
-export async function setOrderStatus(orderId: string, status: string): Promise<AdminState> {
-  const { supabase, error: auth } = await requireAdmin();
+/** Statuses that take money or work back — they need a reason on record. */
+const NEEDS_REASON = ["cancelled", "refunded"];
+
+export async function setOrderStatus(orderId: string, status: string, reason?: string): Promise<AdminState> {
+  const { supabase, userId, error: auth } = await requireAdmin();
   if (auth) return { error: auth };
 
   const parsed = z.enum(ORDER_STATUSES).safeParse(status);
@@ -246,9 +269,28 @@ export async function setOrderStatus(orderId: string, status: string): Promise<A
   // Shipping needs a courier on record — that goes through dispatchOrder.
   if (parsed.data === "shipped") return { error: "Use the dispatch form to mark an order shipped." };
 
+  const note = reason?.trim() ?? "";
+  if (NEEDS_REASON.includes(parsed.data) && note.length < 3) {
+    return { error: "Give a reason — it is kept on the order's timeline." };
+  }
+
+  const { data: before } = await supabase.from("orders").select("status").eq("id", orderId).single();
+  if (!before) return { error: "Unknown order." };
+  if (before.status === parsed.data) return { ok: true };
+
   const { error } = await supabase
     .from("orders").update({ status: parsed.data }).eq("id", orderId);
   if (error) return { error: error.message };
+
+  await logActivity(supabase, {
+    actor_id: userId,
+    entity_type: "order",
+    entity_id: orderId,
+    action: "status_changed",
+    from_status: before.status,
+    to_status: parsed.data,
+    note: note || null,
+  });
 
   revalidatePath("/admin/orders", "layout");
   return { ok: true };
@@ -316,11 +358,17 @@ const priceUpdates = z
  * left null keep inheriting from the design, so they follow automatically.
  */
 export async function setPrices(updates: { id: string; unit_price_kes: number }[]): Promise<AdminState> {
-  const { supabase, error: auth } = await requireAdmin();
+  const { supabase, userId, error: auth } = await requireAdmin();
   if (auth) return { error: auth };
 
   const parsed = priceUpdates.safeParse(updates);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const { data: before } = await supabase
+    .from("products")
+    .select("id, unit_price_kes")
+    .in("id", parsed.data.map((u) => u.id));
+  const was = new Map((before ?? []).map((p) => [p.id, p.unit_price_kes as number]));
 
   const now = new Date().toISOString();
   const results = await Promise.all(
@@ -329,6 +377,19 @@ export async function setPrices(updates: { id: string; unit_price_kes: number }[
     ),
   );
   const failed = results.filter((r) => r.error);
+  const saved = parsed.data.filter((_, i) => !results[i].error && was.get(parsed.data[i].id) !== parsed.data[i].unit_price_kes);
+  if (saved.length) {
+    await logActivity(
+      supabase,
+      saved.map((u) => ({
+        actor_id: userId,
+        entity_type: "product" as const,
+        entity_id: u.id,
+        action: "price_changed",
+        detail: { from_kes: was.get(u.id) ?? null, to_kes: u.unit_price_kes, bulk: true },
+      })),
+    );
+  }
   if (failed.length) return { error: `${failed.length} of ${results.length} prices failed: ${failed[0].error!.message}` };
 
   revalidatePath("/", "layout");
@@ -347,12 +408,14 @@ const dispatchFields = z.object({
  * Only paid or in-production orders can be dispatched.
  */
 export async function dispatchOrder(_prev: AdminState, formData: FormData): Promise<AdminState> {
-  const { supabase, error: auth } = await requireAdmin();
+  const { supabase, userId, error: auth } = await requireAdmin();
   if (auth) return { error: auth };
 
   const parsed = dispatchFields.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { order_id, courier, tracking_ref } = parsed.data;
+
+  const { data: before } = await supabase.from("orders").select("status").eq("id", order_id).single();
 
   const { data, error } = await supabase
     .from("orders")
@@ -367,6 +430,16 @@ export async function dispatchOrder(_prev: AdminState, formData: FormData): Prom
     .select("id");
   if (error) return { error: error.message };
   if (!data?.length) return { error: "Only paid or in-production orders can be dispatched." };
+
+  await logActivity(supabase, {
+    actor_id: userId,
+    entity_type: "order",
+    entity_id: order_id,
+    action: "dispatched",
+    from_status: before?.status ?? null,
+    to_status: "shipped",
+    note: [courier, tracking_ref].filter(Boolean).join(" · "),
+  });
 
   revalidatePath("/admin/orders", "layout");
   revalidatePath("/account/orders");

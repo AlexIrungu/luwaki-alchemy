@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/activity";
 
 /**
  * The only thing that may mark an order paid on Paystack's word.
@@ -45,16 +46,38 @@ export async function POST(request: NextRequest) {
     await admin.from("orders")
       .update({ notes: `⚠ Paid ${paidKES} KES against a total of ${order.total_kes} KES.` })
       .eq("id", order.id);
+    await logActivity(admin, {
+      actor_id: null,
+      entity_type: "order",
+      entity_id: order.id,
+      action: "payment_mismatch",
+      note: `Paystack reported ${paidKES} KES against a total of ${order.total_kes} KES.`,
+    });
     return NextResponse.json({ ok: true });
   }
 
   // Guarded on the current status so a replayed webhook cannot move an order
   // that has already gone into production back to `paid`.
-  await admin
+  const { data: moved } = await admin
     .from("orders")
     .update({ status: "paid", paid_at: new Date().toISOString() })
     .eq("id", order.id)
-    .eq("status", "pending_payment");
+    .eq("status", "pending_payment")
+    .select("id");
+
+  // Logged only when this call actually moved the order, so a replay (or the
+  // success page getting there first) doesn't write a second "paid".
+  if (moved?.length) {
+    await logActivity(admin, {
+      actor_id: null,
+      entity_type: "order",
+      entity_id: order.id,
+      action: "paid",
+      from_status: "pending_payment",
+      to_status: "paid",
+      note: "Confirmed by Paystack webhook.",
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

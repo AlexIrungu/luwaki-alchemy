@@ -2,13 +2,14 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
+ * Next 16 proxy (formerly middleware.ts — the convention was renamed).
  * Refreshes the Supabase session cookie on every request, and guards the
  * routes that require an account. Browsing is deliberately open — the gate
  * sits at checkout and on anything that reads production data.
  */
 const PROTECTED = ["/account", "/checkout", "/private-edit/new", "/admin"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

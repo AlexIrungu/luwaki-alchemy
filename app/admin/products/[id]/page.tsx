@@ -35,7 +35,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   if (!product) notFound();
 
   return (
-    <div className="mt-12">
+    <div className="mt-6">
       <div className="flex items-baseline justify-between gap-6">
         <div>
           <h1 className="font-display text-4xl tracking-[0.15em]">{product.name}</h1>

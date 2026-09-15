@@ -4,6 +4,7 @@ import { CartProvider } from "@/lib/cart/CartProvider";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SmoothScroll } from "@/components/motion/SmoothScroll";
+import { StorefrontOnly } from "@/components/layout/StorefrontOnly";
 import "./globals.css";
 
 // Applies a stored theme choice before first paint. Keep the key in step with
@@ -32,11 +33,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="font-sans antialiased">
-        <SmoothScroll />
+        <StorefrontOnly>
+          <SmoothScroll />
+        </StorefrontOnly>
         <CartProvider>
-          <SiteHeader />
+          <StorefrontOnly>
+            <SiteHeader />
+          </StorefrontOnly>
           <main>{children}</main>
-          <SiteFooter />
+          <StorefrontOnly>
+            <SiteFooter />
+          </StorefrontOnly>
         </CartProvider>
       </body>
     </html>

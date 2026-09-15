@@ -139,3 +139,27 @@ html.lenis body {
   transition-duration: 1ms;
   transition-behavior: allow-discrete;
 }
+
+/*
+ * Print: black on white whatever the theme, so the workshop's print sheet
+ * comes out clean from either. Admin chrome hides itself with `print:hidden`.
+ */
+@media print {
+  :root,
+  :root[data-theme="dark"],
+  :root:not([data-theme="light"]) {
+    color-scheme: light;
+    --color-ground: #ffffff;
+    --color-panel: #ffffff;
+    --color-panel-2: #f2f2f2;
+    --color-line: #999999;
+    --color-line-soft: #cccccc;
+    --color-ink: #000000;
+    --color-ink-dim: #222222;
+    --color-ink-faint: #555555;
+    --color-danger: #000000;
+  }
+  @page {
+    margin: 12mm;
+  }
+}

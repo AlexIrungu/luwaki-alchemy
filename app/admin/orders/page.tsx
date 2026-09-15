@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatKES } from "@/lib/money";
+import { StatusChip } from "@/components/admin/StatusChip";
 
 type Row = {
   id: string;
@@ -51,7 +52,7 @@ export default async function AdminOrdersPage({
   );
 
   return (
-    <div className="mt-12">
+    <div className="mt-6">
       <h1 className="font-display text-4xl tracking-[0.15em]">ORDERS</h1>
 
       <nav className="mt-8 flex flex-wrap gap-x-6 gap-y-2 border-b border-line pb-3 font-mono text-[10px] tracking-[0.2em]">
@@ -88,13 +89,14 @@ export default async function AdminOrdersPage({
           {orders.map((o) => (
             <li key={o.id}>
               <Link href={`/admin/orders/${o.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-4 hover:opacity-80">
-                <span className="w-16 font-mono text-[10px] text-ink-faint">{dateFormat.format(new Date(o.created_at))}</span>
+                <span className="w-14 text-xs text-ink-faint">{dateFormat.format(new Date(o.created_at))}</span>
                 <span className="w-36 font-mono text-[11px] text-ink-dim">{o.reference}</span>
                 <span className="min-w-40 flex-1 text-sm">{o.profiles?.full_name ?? "—"}</span>
-                <span className="w-40 font-mono text-[10px] tracking-[0.15em] text-ink-dim">
-                  {o.status === "shipped" ? `DISPATCHED${o.courier ? ` · ${o.courier.toUpperCase()}` : ""}` : o.status.replace(/_/g, " ").toUpperCase()}
+                <span className="flex w-44 items-center gap-2">
+                  <StatusChip status={o.status} />
+                  {o.status === "shipped" && o.courier && <span className="truncate text-xs text-ink-faint">{o.courier}</span>}
                 </span>
-                <span className="w-28 text-right font-mono text-sm">{formatKES(o.total_kes)}</span>
+                <span className="w-28 text-right text-sm">{formatKES(o.total_kes)}</span>
               </Link>
             </li>
           ))}

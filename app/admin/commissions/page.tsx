@@ -20,7 +20,7 @@ export default async function AdminCommissionsPage() {
     .returns<Row[]>();
 
   return (
-    <div className="mt-12">
+    <div className="mt-6">
       <h1 className="font-display text-4xl tracking-[0.15em]">PRIVATE EDIT</h1>
 
       {!data?.length ? (
