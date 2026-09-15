@@ -1,19 +1,34 @@
-import { Placeholder } from "@/components/ui/Section";
+import { createClient } from "@/lib/supabase/server";
+import { HERO_SLUGS } from "@/lib/hero";
+import { modelFor } from "@/lib/models";
+import { hasStill } from "@/lib/stills";
+import { UniverseHero } from "@/components/universe/UniverseHero";
+import { UniverseSteps } from "@/components/universe/UniverseSteps";
 
 export const metadata = { title: "Universe" };
 
-export default function UniversePage() {
+/** The design printed in the PRINT step — light, and its waves read well as a wireframe. */
+const PRINT_MODEL = "tidal-form";
+
+export default async function UniversePage() {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("products")
+    .select("slug, name")
+    .eq("is_published", true)
+    .order("name")
+    .returns<{ slug: string; name: string }[]>();
+
+  const withStills = (data ?? []).filter((d) => hasStill(d.slug));
+  // The most visible images draw from the hero set — the stills that render cleanly.
+  const featured = (HERO_SLUGS as readonly string[]).flatMap((slug) => withStills.filter((d) => d.slug === slug));
+
   return (
     <>
-      <Placeholder
-        phase={2}
-        title="Universe hero"
-        brief="Floating LUWAKI with a COLLECTIONS anchor, à la duten mue-concept."
-      />
-      <Placeholder
-        phase={2}
-        title="1 Design · 2 Print · 3 Color · ∞ Repeat"
-        brief="Wireframe printer sketch, rainbow cursor across five designs, horizontal scroll."
+      <UniverseHero designs={featured.slice(0, 6)} />
+      <UniverseSteps
+        designs={featured.length >= 5 ? featured : withStills}
+        modelSlug={modelFor(PRINT_MODEL) ? PRINT_MODEL : null}
       />
     </>
   );

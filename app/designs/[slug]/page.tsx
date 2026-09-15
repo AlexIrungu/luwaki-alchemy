@@ -2,8 +2,8 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatKES } from "@/lib/money";
-import { Placeholder } from "@/components/ui/Section";
 import { AddToSet } from "@/components/AddToSet";
+import { DesignName } from "@/components/DesignName";
 import type { Shape } from "@/lib/catalogue";
 import { modelFor } from "@/lib/models";
 import { DesignViewer } from "@/components/three/DesignViewer";
@@ -18,7 +18,7 @@ type DesignRow = {
   name: string;
   description: string | null;
   unit_price_kes: number;
-  collections: { name: string } | null;
+  collections: { name: string; slug: string } | null;
   product_variants: { id: string; options: { shape?: Shape }; price_kes: number | null }[];
   product_media: { url: string; alt: string | null; sort_order: number }[];
 };
@@ -30,7 +30,7 @@ export default async function DesignPage({ params }: { params: Promise<{ slug: s
 
   const { data: product } = await supabase
     .from("products")
-    .select("id, name, description, unit_price_kes, collections(name), product_variants(id, options, price_kes), product_media(url, alt, sort_order)")
+    .select("id, name, description, unit_price_kes, collections(name, slug), product_variants(id, options, price_kes), product_media(url, alt, sort_order)")
     .eq("slug", slug)
     .eq("is_published", true)
     .single<DesignRow>();
@@ -76,7 +76,7 @@ export default async function DesignPage({ params }: { params: Promise<{ slug: s
             <p className="font-mono text-xs tracking-[0.3em] text-ink-faint">
               {product.collections?.name}
             </p>
-            <h1 className="mt-3 font-display text-5xl">{product.name}</h1>
+            <DesignName name={product.name} collection={product.collections?.slug ?? null} />
             <p className="mt-6 text-sm leading-relaxed text-ink-dim">{product.description}</p>
 
             <p className="mt-8 font-mono text-lg">
@@ -94,11 +94,6 @@ export default async function DesignPage({ params }: { params: Promise<{ slug: s
         </div>
       </div>
 
-      <Placeholder
-        phase={2}
-        title="Name effect"
-        brief="The design name carries the STRATEGY logo effect on entry."
-      />
     </>
   );
 }

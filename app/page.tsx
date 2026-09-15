@@ -1,8 +1,9 @@
 import { SocialFeed } from "@/components/SocialFeed";
 import { HeroMorph, type HeroSlide } from "@/components/home/HeroMorph";
-import { Placeholder } from "@/components/ui/Section";
-import { COLLECTION_ORDER, COLLECTION_VERB } from "@/lib/catalogue";
+import { CollectionBlocks, type CollectionBlock } from "@/components/home/CollectionBlocks";
+import { Envision } from "@/components/home/Envision";
 import { HERO_SLUGS } from "@/lib/hero";
+import { hasStill } from "@/lib/stills";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function HomePage() {
@@ -21,24 +22,25 @@ export default async function HomePage() {
     return design ? [{ slug, name: design.name, collection: design.collections?.name ?? null }] : [];
   });
 
+  const { data: collections } = await supabase
+    .from("collections")
+    .select("slug, name, verb, products(slug, name, is_published)")
+    .order("sort_order")
+    .returns<{ slug: string; name: string; verb: string; products: { slug: string; name: string; is_published: boolean }[] }[]>();
+
+  // Only published designs, and only those with a rendered still to orbit.
+  const blocks: CollectionBlock[] = (collections ?? []).map((c) => ({
+    slug: c.slug,
+    name: c.name,
+    verb: c.verb,
+    designs: c.products.filter((d) => d.is_published && hasStill(d.slug)).map(({ slug, name }) => ({ slug, name })),
+  }));
+
   return (
     <>
       <HeroMorph slides={slides} />
-
-      {COLLECTION_ORDER.map((slug) => (
-        <Placeholder
-          key={slug}
-          phase={2}
-          title={`${COLLECTION_VERB[slug]} → ${slug.toUpperCase()}`}
-          brief="Vertical letter-stack and numbers effect (rudlundschwarm.at), with images orbiting the word (vanguart ENVISION)."
-        />
-      ))}
-
-      <Placeholder
-        phase={2}
-        title="ENVISION"
-        brief="Scroll-pinned section, then four alternating WORDS/PICTURE rows. Excludes vanguart's 'EXPLORING THE FUTURE' block."
-      />
+      <CollectionBlocks blocks={blocks} />
+      <Envision designs={blocks.flatMap((b) => b.designs)} />
 
       <SocialFeed />
     </>

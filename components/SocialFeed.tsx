@@ -1,21 +1,46 @@
 import Image from "next/image";
 import { Placeholder } from "@/components/ui/Section";
-import { PLATFORM_LABEL, SOCIAL_POSTS, SOCIAL_PROFILES, type SocialPlatform } from "@/lib/social";
+import { PLATFORM_LABEL, SOCIAL_HANDLE, SOCIAL_POSTS, SOCIAL_PROFILES, type SocialPlatform } from "@/lib/social";
 
 export function SocialFeed() {
-  if (SOCIAL_POSTS.length === 0) {
+  const profiles = (Object.entries(SOCIAL_PROFILES) as [SocialPlatform, string | null][]).filter(
+    (entry): entry is [SocialPlatform, string] => Boolean(entry[1]),
+  );
+
+  if (SOCIAL_POSTS.length === 0 && profiles.length === 0) {
     return (
       <Placeholder
         phase={1}
         title="Social media"
-        brief="Horizontal scroll of the strongest Instagram and TikTok posts. Built — waiting on the handles and a pick of posts (lib/social.ts)."
+        brief="Horizontal scroll of the strongest Instagram and TikTok posts. Built — waiting on a pick of posts (lib/social.ts)."
       />
     );
   }
 
-  const profiles = (Object.entries(SOCIAL_PROFILES) as [SocialPlatform, string | null][]).filter(
-    (entry): entry is [SocialPlatform, string] => Boolean(entry[1]),
-  );
+  // Handles without posts yet: the follow links carry the section on their own.
+  if (SOCIAL_POSTS.length === 0) {
+    return (
+      <section className="border-y border-line-soft px-6 py-24 md:px-10">
+        <div className="mx-auto max-w-6xl">
+          <p className="font-mono text-[11px] tracking-[0.3em] text-ink-faint">FOLLOW THE WORK</p>
+          <p className="mt-4 font-display text-5xl font-light md:text-7xl">{SOCIAL_HANDLE}</p>
+          <nav className="mt-10 flex flex-wrap gap-8 font-mono text-[11px] tracking-[0.25em] text-ink-dim">
+            {profiles.map(([platform, href]) => (
+              <a
+                key={platform}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-ink"
+              >
+                {PLATFORM_LABEL[platform]} ↗
+              </a>
+            ))}
+          </nav>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="border-y border-line-soft py-24">

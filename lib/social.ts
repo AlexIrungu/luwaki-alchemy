@@ -6,8 +6,8 @@
  * app review and a token that expires, and the brief asks for the *best*
  * posts — a choice, not a live feed. Thumbnails go in `public/social/`.
  *
- * Empty until Lucy sends the handles and her pick of posts; the section keeps
- * rendering its Phase 1 placeholder until then.
+ * Handles confirmed 2026-09-15. Posts are still to come from Lucy — until then
+ * the section shows the handles as follow links.
  */
 
 export type SocialPlatform = "instagram" | "tiktok";
@@ -23,9 +23,12 @@ export type SocialPost = {
 };
 
 export const SOCIAL_PROFILES: Record<SocialPlatform, string | null> = {
-  instagram: null,
-  tiktok: null,
+  instagram: "https://www.instagram.com/_luwaki_/",
+  tiktok: "https://www.tiktok.com/@_luwaki_",
 };
+
+/** The handle is the same on both platforms. */
+export const SOCIAL_HANDLE = "@_luwaki_";
 
 export const SOCIAL_POSTS: SocialPost[] = [];
 

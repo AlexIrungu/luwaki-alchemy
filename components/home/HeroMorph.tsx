@@ -204,10 +204,26 @@ export function HeroMorph({ slides }: { slides: HeroSlide[] }) {
         resize();
         canvas.dataset.ready = "true";
 
+        // The caption switches at the dissolve's midpoint — when the incoming
+        // design is the one mostly on screen — not after it has finished.
+        let captioned = false;
         timeline = gsap.timeline({ repeat: -1 });
         timeline
-          .to(state, { progress: 1, duration: MORPH, ease: "power2.inOut", delay: HOLD, onUpdate: draw })
+          .to(state, {
+            progress: 1,
+            duration: MORPH,
+            ease: "power2.inOut",
+            delay: HOLD,
+            onUpdate: () => {
+              draw();
+              if (!captioned && state.progress >= 0.5) {
+                captioned = true;
+                setIndex((from + 1) % slides.length);
+              }
+            },
+          })
           .call(() => {
+            captioned = false;
             from = (from + 1) % slides.length;
             bind(0, from);
             bind(1, (from + 1) % slides.length);
