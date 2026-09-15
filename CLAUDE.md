@@ -10,7 +10,12 @@ Sister repos: `../luwaki-demo` (proven 3D viewer prototype) · `Kent Design` (se
 
 Next.js 16 App Router · React 19 · TypeScript · Tailwind CSS v4 · Supabase (Postgres + Auth +
 Storage) · Paystack. Phase 2 adds GSAP + Lenis; Phase 3 ports React Three Fiber from `luwaki-demo`.
-Hosting: **Vercel** — not Hostinger shared.
+Hosting: **Vercel** — not Hostinger shared, and **not GitHub Pages** (static only: no server
+actions, webhook, proxy or service-role client). The repo is public; secrets stay in `.env.local` +
+Vercel env vars. `.github/workflows/supabase-keepalive.yml` reads the DB twice a week so the free
+project never pauses (needs `SUPABASE_URL` / `SUPABASE_ANON_KEY` repo secrets).
+
+**Read `LESSONS.md` before touching WebGL effects, GSAP timelines, theming or checkout money.**
 
 ## The five facts that shape everything
 
@@ -35,7 +40,11 @@ Hosting: **Vercel** — not Hostinger shared.
 - **Snake_case for every Supabase field** (`unit_price_kes`, `profile_id`).
 - **Tailwind v4** — no `tailwind.config.js`. Tokens are CSS variables in the `@theme` block of
   `app/globals.css`; use semantic names (`text-ink-dim`, `bg-panel`), never raw hex.
-- **The palette and fonts are placeholders.** Lucy owns the brand; swap them when the sheet lands.
+- **Light theme by default, dark as the alternative** (client, 2026-09-15). `@theme` holds the light
+  tokens; `[data-theme="dark"]` + a `prefers-color-scheme` block override the same variables — never
+  add `dark:` variants. Brand colours (Burgundy / Turquoise / Gold, mapped to Sanzo Wada) belong to
+  the **site, never to a design**: stills are rendered transparent under neutral light, and WebGL
+  resin reads `--color-shell`, not `--color-ink`. Fonts are still placeholders.
 - **Never trust a client-side price.** The cart lives in localStorage; checkout re-prices from the
   catalogue server-side and re-runs `checkoutBlocks` before touching Paystack.
 - **`SUPABASE_SERVICE_ROLE_KEY` must hold the service_role key**, not the anon key — a mismatch
@@ -78,6 +87,14 @@ the backstop under both.
 - A slug is generated once from the name and is a URL forever — don't regenerate it on rename.
 - Product media is a **public** bucket: the catalogue is public and signed URLs would defeat CDN
   caching on a page showing dozens of images.
+- **The admin has its own shell** (`app/admin/layout.tsx`): no storefront header/footer/Lenis
+  (`StorefrontOnly`), sidebar with work-waiting badges, `noindex`. Status colours come from
+  `components/admin/StatusChip.tsx` only.
+- **`activity_log` is append-only** (migration 0008): order placed / paid / status changes / dispatch,
+  price and publish changes. Admin actions log with the acting user; the webhook, success page and
+  checkout log with the service role. A failed log write is reported, never thrown.
+- **`shipped` is set only by `dispatchOrder`** (courier required). Cancel and refund require a reason.
+- The route guard is `proxy.ts` (Next 16 renamed `middleware.ts`).
 - `/admin/orders/[id]` is the workshop's print sheet. Its widths come from `orders.measurements`
   — the checkout snapshot, **never** a join to the customer's current profile.
 
@@ -101,6 +118,10 @@ The order of operations in `app/checkout/actions.ts` is not negotiable:
 
 The success page also confirms directly with the provider, because a customer may never land on
 it and their arrival proves nothing on its own.
+
+**Prices are VAT-exclusive (16%).** `lib/tax.ts#orderTotals` is the only place an order is added up:
+VAT is rounded once on subtotal + shipping and stored as `orders.vat_kes`; Paystack charges
+`total_kes`. Delivery details are collected at checkout into `orders.shipping_address`.
 
 **Shipping is still unscoped with the client** — `shippingKES()` in `lib/orders.ts` returns 0 and
 exists so that question stays visible instead of being answered by a hardcoded number buried in
