@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+.env*
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+
+# Raw Rhino/GLB exports are large and regenerable — keep them out of git.
+source/

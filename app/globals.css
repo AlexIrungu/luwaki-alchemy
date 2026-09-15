@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/*
+ * Tailwind v4 — no tailwind.config.js. Tokens are CSS variables in @theme and
+ * are used through their semantic Tailwind names (`bg-panel`, `text-ink-dim`),
+ * never as raw hex in a component.
+ *
+ * PLACEHOLDER PALETTE. Lucy owns the brand; these values are a defensible
+ * starting point (translucent resin on near-black) to be replaced once the
+ * brand sheet arrives. Same for the fonts in app/layout.tsx.
+ */
+@theme {
+  --color-ground: #08070a;
+  --color-panel: #101016;
+  --color-panel-2: #17171f;
+  --color-line: #26262f;
+  --color-line-soft: #1b1b22;
+
+  --color-ink: #f2efe9;
+  --color-ink-dim: #a09aa8;
+  --color-ink-faint: #6b6575;
+
+  /* Collection accents — the three worlds. */
+  --color-sublime: #9fd8e8;
+  --color-opulence: #d8b166;
+  --color-noir: #8c6fd4;
+
+  --color-resin: #cfe9f2;
+  --color-flag: #e0a94a;
+  --color-danger: #e06060;
+
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-cormorant), Georgia, serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-ground);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Reduced motion is a day-one path, not a retrofit. The motion layer (Phase 2)
+ * must additionally check this in JS before starting a GSAP timeline —
+ * disabling a CSS transition does not stop a scroll-pinned animation.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
