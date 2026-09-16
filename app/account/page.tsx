@@ -5,6 +5,7 @@ import { ProfileForm } from "@/components/ProfileForm";
 import { SetInProgress } from "@/components/account/SetInProgress";
 import { HandsDiagram } from "@/components/account/HandsDiagram";
 import { OrderTimeline } from "@/components/account/OrderTimeline";
+import { ReorderButton } from "@/components/account/ReorderButton";
 import { formatKES } from "@/lib/money";
 
 export const metadata: Metadata = { title: "Account" };
@@ -79,7 +80,8 @@ export default async function AccountPage() {
   const active = (orders ?? []).filter((o) => ACTIVE.includes(o.status));
   const past = (orders ?? []).filter((o) => !ACTIVE.includes(o.status) && o.status !== "pending_payment");
   const quoted = (commissions ?? []).filter((c) => c.quoted_kes !== null && c.stage === "brief");
-  const firstName = profile?.full_name?.trim().split(/\s+/)[0];
+  const given = profile?.full_name?.trim().split(/\s+/)[0];
+  const firstName = given && given[0].toUpperCase() + given.slice(1);
 
   const alerts = [
     !complete && {
@@ -178,11 +180,14 @@ export default async function AccountPage() {
           >
             <ul className="divide-y divide-line-soft border-y border-line-soft">
               {past.slice(0, 3).map((order) => (
-                <li key={order.id} className="flex flex-wrap items-baseline justify-between gap-3 py-4">
-                  <span className="font-mono text-[11px]">{order.reference}</span>
-                  <span className="font-mono text-[10px] text-ink-faint">
-                    {date(order.created_at)} · {order.status.replace("_", " ").toUpperCase()} · {formatKES(order.total_kes)}
-                  </span>
+                <li key={order.id} className="flex flex-wrap items-start justify-between gap-3 py-4">
+                  <div>
+                    <span className="font-mono text-[11px]">{order.reference}</span>
+                    <span className="mt-1 block font-mono text-[10px] text-ink-faint">
+                      {date(order.created_at)} · {order.status.replace("_", " ").toUpperCase()} · {formatKES(order.total_kes)}
+                    </span>
+                  </div>
+                  <ReorderButton orderId={order.id} />
                 </li>
               ))}
             </ul>

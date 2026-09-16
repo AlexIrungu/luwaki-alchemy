@@ -187,5 +187,10 @@ export async function startCheckout(
     return { error: error instanceof Error ? error.message : "Could not start payment." };
   }
 
+  // The set now lives on the order. Clear the account's saved copy, or it would
+  // merge straight back into the emptied cart after payment. If payment is
+  // abandoned, this browser still holds the set and saves it again.
+  await supabase.from("carts").delete().eq("profile_id", user.id);
+
   redirect(authorizationUrl);
 }
