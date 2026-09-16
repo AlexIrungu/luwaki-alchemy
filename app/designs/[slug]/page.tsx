@@ -34,8 +34,16 @@ type DesignRow = {
  * live nail), the name on a marker bar, a big tagline over an airy body, and
  * short thick rules between the parts.
  */
-export default async function DesignPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function DesignPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ shape?: string | string[] }>;
+}) {
   const { slug } = await params;
+  const asked = (await searchParams).shape;
+  const initialShape = SHAPES.find((s) => s === asked);
   const supabase = await createClient();
 
   const { data: product } = await supabase
@@ -74,7 +82,7 @@ export default async function DesignPage({ params }: { params: Promise<{ slug: s
   const body = split === -1 ? "" : description.slice(split + 1).trim();
 
   return (
-    <DesignShapeProvider shapes={sold} delivered={delivered}>
+    <DesignShapeProvider shapes={sold} delivered={delivered} initial={initialShape}>
       <div className="relative overflow-hidden px-6 pb-32 pt-36">
         <span
           aria-hidden="true"

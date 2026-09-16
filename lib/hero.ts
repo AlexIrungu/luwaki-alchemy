@@ -48,6 +48,9 @@ const HERO_SKIP: Record<string, Shape[]> = { rimuru: ["coffin"] };
 
 export type HeroStep = { slug: string; shape: Shape };
 
+const heroShapes = (slug: string, shapesOf: (slug: string) => Shape[]) =>
+  shapesOf(slug).filter((s) => !HERO_SKIP[slug]?.includes(s));
+
 /**
  * Turns an order of designs into the hero's steps. A design keeps the shape on
  * screen when it has it (a design change), and a design with more than one
@@ -63,7 +66,7 @@ export function heroSequence(slugs: readonly string[], shapesOf: (slug: string) 
   };
   let shape: Shape = "coffin";
   for (const slug of slugs) {
-    const shapes = shapesOf(slug).filter((s) => !HERO_SKIP[slug]?.includes(s));
+    const shapes = heroShapes(slug, shapesOf);
     if (shapes.length === 0) continue;
     if (!shapes.includes(shape)) shape = shapes.includes("coffin") ? "coffin" : shapes[0];
     show(slug, shape);
@@ -75,3 +78,21 @@ export function heroSequence(slugs: readonly string[], shapesOf: (slug: string) 
   }
   return steps;
 }
+
+/**
+ * The fanned set of ten: every finger can take its own shape, so designs with
+ * more than coffin show one of their other shapes, rotating square → stiletto →
+ * oval across the set. Coffin-only designs stay coffin.
+ */
+export function setSequence(slugs: readonly string[], shapesOf: (slug: string) => Shape[]): HeroStep[] {
+  let turn = 0;
+  return slugs.flatMap((slug) => {
+    const shapes = heroShapes(slug, shapesOf);
+    if (shapes.length === 0) return [];
+    const others = shapes.filter((s) => s !== "coffin");
+    return [{ slug, shape: others.length ? others[turn++ % others.length] : shapes[0] }];
+  });
+}
+
+/** A design page link that opens on a given shape. */
+export const designHref = (slug: string, shape?: Shape) => `/designs/${slug}${shape ? `?shape=${shape}` : ""}`;

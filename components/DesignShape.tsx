@@ -21,16 +21,20 @@ const Context = createContext<DesignShape | null>(null);
 export function DesignShapeProvider({
   shapes,
   delivered,
+  initial,
   children,
 }: {
   /** Shapes this design is sold in, in catalogue order. */
   shapes: Shape[];
   delivered: Shape[];
+  /** A shape asked for in the link (`?shape=`) — used when this design is sold in it. */
+  initial?: Shape;
   children: ReactNode;
 }) {
   // Coffin was Kent's first delivery for every design, so it leads when present.
   const [shape, setShape] = useState<Shape | null>(
-    (shapes.includes("coffin") && delivered.includes("coffin") ? "coffin" : null) ??
+    (initial && shapes.includes(initial) ? initial : null) ??
+      (shapes.includes("coffin") && delivered.includes("coffin") ? "coffin" : null) ??
       shapes.find((s) => delivered.includes(s)) ??
       shapes[0] ??
       null,

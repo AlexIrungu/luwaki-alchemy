@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
-import { shapeStillSrc } from "@/lib/hero";
-import { canMorph, morphKey } from "@/lib/morph";
+import { designHref, setSequence, shapeStillSrc } from "@/lib/hero";
+import { canMorph, morphKey, morphShapes } from "@/lib/morph";
 import type { Shape } from "@/lib/catalogue";
 import type { HoverInfo, SplitRef } from "@/components/three/HeroNail3D";
 
@@ -131,7 +131,10 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
     () => slides.filter((s) => canMorph(s.slug, s.shape)).map(({ slug, shape }) => ({ slug, shape })),
     [slides],
   );
-  const setSlugs = useMemo(() => setDesigns.map((d) => d.slug).filter((slug) => canMorph(slug)), [setDesigns]);
+  const setSteps = useMemo(
+    () => setSequence(setDesigns.map((d) => d.slug), morphShapes).filter((step) => canMorph(step.slug, step.shape)),
+    [setDesigns],
+  );
   // Scroll progress through the pinned hero, read every frame by the 3D scene.
   const split = useRef(0) as SplitRef;
 
@@ -143,21 +146,21 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
     () => new Map([...slides, ...setDesigns].map((d) => [d.slug, d])),
     [slides, setDesigns],
   );
-  const [label, setLabel] = useState<{ name: string; collection: string | null; colour: string } | null>(null);
+  const [label, setLabel] = useState<{ name: string; collection: string | null; shape: Shape; colour: string } | null>(null);
   const [labelOn, setLabelOn] = useState(false);
   const onMorphHover = useCallback(
     (info: HoverInfo) => {
       if (!info) return setLabelOn(false);
       const design = designIndex.get(info.slug);
       if (!design) return;
-      setLabel({ name: design.name, collection: design.collection, colour: info.colour });
+      setLabel({ name: design.name, collection: design.collection, shape: info.shape, colour: info.colour });
       setLabelOn(true);
     },
     [designIndex],
   );
   const onMorphReady = useCallback((slugs: string[]) => setMorphSlugs(slugs), []);
   const router = useRouter();
-  const onMorphSelect = useCallback((slug: string) => router.push(`/designs/${slug}`), [router]);
+  const onMorphSelect = useCallback((slug: string, shape: Shape) => router.push(designHref(slug, shape)), [router]);
   const onMorphFail = useCallback(() => {
     setMorphSlugs(null);
     setMode("2d");
@@ -432,7 +435,7 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
           <div className="absolute inset-0">
             <HeroNail3D
               steps={morphable}
-              setSlugs={setSlugs}
+              setSteps={setSteps}
               split={split}
               onReady={onMorphReady}
               onChange={onMorphChange}
@@ -498,7 +501,9 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
             <>
               <p className="font-display text-2xl font-light">{label.name}</p>
               <p className="mt-1 whitespace-nowrap font-mono text-[10px] tracking-[0.25em] text-ink-dim">
-                {[label.collection, label.colour && `IN ${label.colour.toUpperCase()}`, "VIEW →"].filter(Boolean).join(" · ")}
+                {[label.collection, label.shape.toUpperCase(), label.colour && `IN ${label.colour.toUpperCase()}`, "VIEW →"]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             </>
           )}
@@ -508,7 +513,7 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
       {current && (
         <Link
           data-hero-caption
-          href={`/designs/${current.slug}`}
+          href={designHref(current.slug, current.shape)}
           className="absolute bottom-8 left-6 font-mono text-[10px] tracking-[0.25em] text-ink-dim transition-colors hover:text-ink md:left-10"
         >
           <span className="text-ink-faint">

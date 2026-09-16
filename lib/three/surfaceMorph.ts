@@ -12,7 +12,19 @@ import type { Shape } from "@/lib/catalogue";
  * variant (makeWireMaterial).
  */
 
-export type DesignMaps = { slug: string; shape: Shape; key: string; height: THREE.DataTexture; color: THREE.Texture };
+export type DesignMaps = {
+  slug: string;
+  shape: Shape;
+  key: string;
+  height: THREE.DataTexture;
+  color: THREE.Texture;
+  /**
+   * Metres along the grid's Z that bring this nail's middle to the grid's middle.
+   * Bakes are anchored at the cuticle, so a short shape (oval) sits toward one
+   * end; a still nail is shifted by this, a morph eases between two of them.
+   */
+  centre: number;
+};
 export type Tokens = { glow: string; resin: string; ground: string };
 
 function loadImage(src: string) {
@@ -111,6 +123,21 @@ export async function loadMaps(slug: string, shape: Shape = "coffin"): Promise<D
   const toNail = chamfer(outside, W, H, false, 64);
   for (let i = 0; i < W * H; i++) data[i * 4 + 3] = inside[i] ? toEdge[i] : -toNail[i];
 
+  // Rows the nail spans; row r sits at z0 + (r + 0.5) · cell on the grid.
+  let firstRow = H;
+  let lastRow = -1;
+  for (let r = 0; r < H; r++) {
+    for (let x = 0; x < W; x++) {
+      if (!inside[r * W + x]) continue;
+      firstRow = Math.min(firstRow, r);
+      lastRow = r;
+      break;
+    }
+  }
+  const { cell, bounds } = MORPH;
+  const nailMid = bounds.z0 + ((firstRow + lastRow) / 2 + 0.5) * cell;
+  const centre = lastRow < 0 ? 0 : ((bounds.z0 + bounds.z1) / 2 - nailMid) / 1000;
+
   const height = new THREE.DataTexture(data, img.width, img.height, THREE.RGBAFormat, THREE.FloatType);
   height.minFilter = THREE.NearestFilter;
   height.magFilter = THREE.NearestFilter;
@@ -122,7 +149,7 @@ export async function loadMaps(slug: string, shape: Shape = "coffin"): Promise<D
   color.minFilter = THREE.LinearFilter;
   color.needsUpdate = true;
 
-  return { slug, shape, key: morphKey(slug, shape), height, color };
+  return { slug, shape, key: morphKey(slug, shape), height, color, centre };
 }
 
 /**

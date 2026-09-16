@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { gsap } from "@/lib/gsap";
 import { MORPH, morphKey } from "@/lib/morph";
 import type { HeroStep } from "@/lib/hero";
+import type { Shape } from "@/lib/catalogue";
 import {
   type DesignMaps,
   type Tokens,
@@ -49,10 +50,13 @@ function SurfaceMorph({
   tokens: Tokens;
   split: SplitRef;
   showing: { current: string };
-  onChange: (slug: string) => void;
-  onSelect: (slug: string) => void;
+  onChange: (key: string) => void;
+  onSelect: (slug: string, shape: Shape) => void;
 }) {
   const rig = useRef<THREE.Group>(null);
+  const grid = useRef<THREE.Group>(null);
+  const onScreen = useRef<DesignMaps>(first);
+  const pair = useRef({ from: first, to: first });
   const timeline = useRef<gsap.core.Timeline | null>(null);
   const pausedForSplit = useRef(false);
 
@@ -91,9 +95,10 @@ function SurfaceMorph({
     let cancelled = false;
     let retry = 0;
 
-    const announce = (key: string) => {
-      showing.current = key;
-      onChange(key);
+    const announce = (maps: DesignMaps) => {
+      onScreen.current = maps;
+      showing.current = maps.key;
+      onChange(maps.key);
     };
 
     // Only what's playing is loaded: each change waits for its incoming maps and
@@ -108,6 +113,7 @@ function SurfaceMorph({
           uniforms.uHB.value = to.height;
           uniforms.uCB.value = to.color;
           uniforms.uProgress.value = 0;
+          pair.current = { from, to };
           void get(steps[(next + 1) % steps.length]).catch(() => {});
 
           timeline.current = gsap
@@ -120,7 +126,7 @@ function SurfaceMorph({
               },
             })
             .to(uniforms.uProgress, { value: 1, duration: DURATION, ease: "sine.inOut" })
-            .call(() => announce(to.key), [], DURATION * 0.5);
+            .call(() => announce(to), [], DURATION * 0.5);
         })
         .catch(() => {
           // A step that won't load is skipped; the nail on screen simply holds a little longer.
@@ -130,7 +136,7 @@ function SurfaceMorph({
         });
     };
 
-    announce(first.key);
+    announce(first);
     cycle(first);
 
     const onVisibility = () => {
@@ -191,6 +197,14 @@ function SurfaceMorph({
       else timeline.current?.resume();
     }
 
+    // A short shape is lifted to the middle of the frame. Mid-change the lift
+    // eases on the shader's outline curve, so the nail still grows from its cuticle.
+    if (grid.current) {
+      const { from, to } = pair.current;
+      const shapeT = THREE.MathUtils.smoothstep(scene.uniforms.uProgress.value, 0.1, 0.9);
+      grid.current.position.z = THREE.MathUtils.lerp(from.centre, to.centre, shapeT);
+    }
+
     const single = split.current <= SPLIT_START;
     scene.shadow.visible = single;
     if (!rig.current) return;
@@ -207,7 +221,7 @@ function SurfaceMorph({
         <group ref={rig}>
           {/* Grid lies in X–Z with the pattern on +Y: stand it up, pattern to camera. */}
           <group rotation={[0, 0, Math.PI]}>
-            <group rotation={[Math.PI / 2, 0, 0]}>
+            <group ref={grid} rotation={[Math.PI / 2, 0, 0]}>
               <primitive object={scene.top} />
               <primitive object={scene.underside} />
               <primitive
@@ -215,7 +229,7 @@ function SurfaceMorph({
                 onPointerMove={onMove}
                 onPointerOver={onOver}
                 onPointerOut={onOut}
-                onClick={() => split.current <= SPLIT_START && onSelect(showing.current)}
+                onClick={() => split.current <= SPLIT_START && onSelect(onScreen.current.slug, onScreen.current.shape)}
               />
             </group>
           </group>
@@ -255,7 +269,7 @@ const SET_COLOURS = [...SET_COLOUR_NAMES, ...[...SET_COLOUR_NAMES].reverse()].ma
   hex: SANZO.find((c) => c.name === name)?.hex ?? null,
 }));
 
-export type HoverInfo = { slug: string; colour: string } | null;
+export type HoverInfo = { slug: string; shape: Shape; colour: string } | null;
 
 function TenSet({
   maps,
@@ -270,12 +284,12 @@ function TenSet({
   /** Every bake loaded so far, by key — the set's coffins plus whatever the loop has shown. */
   maps: { current: Map<string, DesignMaps> };
   first: DesignMaps;
-  /** The set's designs, as coffin keys. */
+  /** The set's designs, as bake keys (a design in the shape chosen for the set). */
   order: string[];
   tokens: Tokens;
   split: SplitRef;
   showing: { current: string };
-  onSelect: (slug: string) => void;
+  onSelect: (slug: string, shape: Shape) => void;
   onHover: (info: HoverInfo) => void;
 }) {
   const { viewport } = useThree();
@@ -319,8 +333,10 @@ function TenSet({
         group,
         uniforms,
         slug: first.slug,
+        shape: first.shape,
         colour: colour.hex ? colour.name : "",
         meshes: [surfaceTop, surfaceUnder, hit],
+        inner,
       };
     });
   }, [first, tokens]);
@@ -347,12 +363,19 @@ function TenSet({
     // (left thumb), the rest fan out around it.
     if (p <= 0.02) assigned.current = false;
     if (p > 0.02 && !assigned.current) {
-      // The nail on screen keeps its shape at the centre of the set.
-      const chosen = [showing.current, ...order.filter((s) => s !== showing.current)].filter((s) => maps.current.has(s));
+      // The nail on screen keeps its shape at the centre of the set; the same
+      // design doesn't appear twice in another shape.
+      const centre = maps.current.get(showing.current);
+      const chosen = [showing.current, ...order.filter((key) => maps.current.get(key)?.slug !== centre?.slug)].filter((key) =>
+        maps.current.has(key),
+      );
       CENTRE_OUT.forEach((slotIndex, rank) => {
         const design = maps.current.get(chosen[rank % chosen.length])!;
         const nail = nails[slotIndex];
         nail.slug = design.slug;
+        nail.shape = design.shape;
+        // Short shapes sit in the middle of their slot, level with the fingertips around them.
+        nail.inner.position.z = design.centre;
         nail.uniforms.uHA.value = design.height;
         nail.uniforms.uHB.value = design.height;
         nail.uniforms.uCA.value = design.color;
@@ -416,14 +439,14 @@ function TenSet({
           object={nail.group}
           onClick={(event: ThreeEvent<MouseEvent>) => {
             event.stopPropagation();
-            if (split.current > 0.4) onSelect(nail.slug);
+            if (split.current > 0.4) onSelect(nail.slug, nail.shape);
           }}
           onPointerOver={(event: ThreeEvent<PointerEvent>) => {
             event.stopPropagation();
             if (split.current <= 0.4) return;
             hovered.current = i;
             document.body.style.cursor = "pointer";
-            onHover({ slug: nail.slug, colour: nail.colour });
+            onHover({ slug: nail.slug, shape: nail.shape, colour: nail.colour });
           }}
           onPointerOut={() => {
             if (hovered.current === i) {
@@ -454,7 +477,7 @@ const SET_PRELOAD_AFTER = 6;
 
 export default function HeroNail3D({
   steps,
-  setSlugs,
+  setSteps,
   split,
   onReady,
   onChange,
@@ -463,12 +486,13 @@ export default function HeroNail3D({
   onFail,
 }: {
   steps: HeroStep[];
-  setSlugs: string[];
+  /** The fanned set's designs, each in the shape it shows there. */
+  setSteps: HeroStep[];
   split: SplitRef;
   /** Called with the loop's keys once the first maps are in. */
   onReady: (keys: string[]) => void;
   onChange: (key: string) => void;
-  onSelect: (slug: string) => void;
+  onSelect: (slug: string, shape: Shape) => void;
   onHover: (info: HoverInfo) => void;
   onFail: () => void;
 }) {
@@ -498,11 +522,11 @@ export default function HeroNail3D({
 
   const setStarted = useRef(false);
   const loadSet = useCallback(() => {
-    if (setStarted.current || setSlugs.length === 0) return;
+    if (setStarted.current || setSteps.length === 0) return;
     setStarted.current = true;
     // The set only fans out on scroll, so its maps wait for the first scroll (or a few seconds).
-    Promise.allSettled(setSlugs.map((slug) => get({ slug, shape: "coffin" }))).then(() => setSetReady(true));
-  }, [setSlugs, get]);
+    Promise.allSettled(setSteps.map((step) => get(step))).then(() => setSetReady(true));
+  }, [setSteps, get]);
 
   useEffect(() => {
     // Colours follow the brand tokens rather than hardcoded hex.
@@ -539,8 +563,8 @@ export default function HeroNail3D({
   }, [steps, get, loadSet, onReady, onFail]);
 
   const setOrder = useMemo(
-    () => (setReady ? setSlugs.map((slug) => morphKey(slug)).filter((key) => loaded.current.has(key)) : []),
-    [setReady, setSlugs],
+    () => (setReady ? setSteps.map((step) => morphKey(step.slug, step.shape)).filter((key) => loaded.current.has(key)) : []),
+    [setReady, setSteps],
   );
 
   return (
