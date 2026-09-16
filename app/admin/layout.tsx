@@ -26,6 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           { href: "/admin/products", label: "DESIGNS" },
           { href: "/admin/commissions", label: "PRIVATE EDIT", badge: briefs.count ?? 0 },
           { href: "/admin/messages", label: "MESSAGES", badge: unread.count ?? 0 },
+          { href: "/admin/customers", label: "CUSTOMERS" },
         ]}
       />
       <div className="min-w-0 flex-1 px-4 pb-24 pt-2 sm:px-8 lg:px-12 lg:pt-6 print:p-0">

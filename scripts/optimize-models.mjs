@@ -26,14 +26,12 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { basename, extname, join } from "node:path";
+import { join } from "node:path";
+import { SHAPES, parseFile } from "./lib/names.mjs";
 
 const SOURCE_DIR = "source";
 const OUT_DIR = join("public", "models");
 const MANIFEST = join(OUT_DIR, "manifest.json");
-
-/** Mirrors SHAPES in lib/catalogue.ts — same names, same order. */
-const SHAPES = ["cubic", "square", "stiletto", "coffin", "oval"];
 
 /**
  * Fraction of the bounding-box diagonal a simplified vertex may move. Nails
@@ -44,29 +42,6 @@ const SIMPLIFY_ERROR = 0.00005;
 
 const run = (args) => execFileSync("gltf-transform", args, { stdio: ["ignore", "pipe", "pipe"] });
 const kb = (path) => Math.round(statSync(path).size / 1024);
-
-/**
- * Mirrors slugify() in lib/slug.ts. Rhino writes an apostrophe as "_", so
- * "TURTLE_S REEF" is read as "turtle's reef" first.
- */
-const slugify = (name) =>
-  name
-    .replace(/_(?=s\b)/gi, "'")
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/['’]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-
-/** "JUNGLE OVAL.gltf" → { slug: "jungle", shape: "oval" }, or null. */
-function parseFile(file) {
-  const match = basename(file, extname(file)).trim().match(/^(.+?)[\s_-]+(\S+)$/);
-  if (!match) return null;
-  const shape = match[2].toLowerCase();
-  if (!SHAPES.includes(shape)) return null;
-  return { slug: slugify(match[1]), shape };
-}
 
 function readStats(path) {
   const buffer = readFileSync(path);
@@ -141,10 +116,15 @@ for (const { file, slug, shape } of parsed) {
   const full = join(OUT_DIR, `${slug}-${shape}-full.glb`);
   const web = join(OUT_DIR, `${slug}-${shape}-web.glb`);
 
+  // Only exports newer than their GLBs are re-packed, so a monthly drop doesn't
+  // redo the whole catalogue. A copied-in file is always newer.
+  const fresh = [full, web].every((out) => existsSync(out) && statSync(out).mtimeMs >= statSync(input).mtimeMs);
   try {
-    run(["optimize", input, full, "--compress", "draco", "--simplify", "false"]);
-    run(["optimize", input, web, "--compress", "draco", "--simplify", "true",
-      "--simplify-error", String(SIMPLIFY_ERROR)]);
+    if (!fresh) {
+      run(["optimize", input, full, "--compress", "draco", "--simplify", "false"]);
+      run(["optimize", input, web, "--compress", "draco", "--simplify", "true",
+        "--simplify-error", String(SIMPLIFY_ERROR)]);
+    }
   } catch (error) {
     console.error(`✗ ${file}: ${error.stderr?.toString().trim() || error.message}`);
     failed++;
@@ -159,7 +139,7 @@ for (const { file, slug, shape } of parsed) {
     sourceMB: +(statSync(input).size / 1024 / 1024).toFixed(1),
   };
 
-  console.log(`${`${slug} ${shape}`.padEnd(26)} ${String(kb(input)).padStart(7)} KB  →  full ${String(kb(full)).padStart(5)} KB   web ${String(kb(web)).padStart(5)} KB`);
+  console.log(`${`${slug} ${shape}`.padEnd(26)} ${String(kb(input)).padStart(7)} KB  →  full ${String(kb(full)).padStart(5)} KB   web ${String(kb(web)).padStart(5)} KB${fresh ? "   (unchanged)" : ""}`);
 }
 
 const manifest = [...designs]

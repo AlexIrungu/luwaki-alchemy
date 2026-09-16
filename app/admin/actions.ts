@@ -5,27 +5,11 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { SHAPES } from "@/lib/catalogue";
 import { slugify } from "@/lib/slug";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/activity";
 
 export type AdminState = { error?: string; ok?: boolean };
 
-/**
- * Every action re-checks the admin role. Middleware already guards /admin and
- * RLS is the real backstop, but a server action is a public endpoint — it does
- * not inherit the page's protection.
- */
-async function requireAdmin() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { supabase, userId: null, error: "Not signed in." as const };
-
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return { supabase, userId: null, error: "Not an admin." as const };
-
-  return { supabase, userId: user.id, error: null };
-}
 
 const productFields = z.object({
   name: z.string().min(2, "A design needs a name."),

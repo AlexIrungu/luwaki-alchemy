@@ -95,6 +95,8 @@ the backstop under both.
   checkout log with the service role. A failed log write is reported, never thrown.
 - **`shipped` is set only by `dispatchOrder`** (courier required). Cancel and refund require a reason.
 - The route guard is `proxy.ts` (Next 16 renamed `middleware.ts`).
+- **Monthly drop: `npm run drop -- <folder>`** (`--dry-run` first). Validates `<DESIGN> <SHAPE>` names (refuses the whole drop on one bad name), copies into `source/`, creates new designs unpublished at the KES 100 placeholder with no collection + five variants, then runs models (incremental — unchanged exports skipped), morph bake, shape tiles and coffin stills for this drop's designs only. Name rules live once in `scripts/lib/names.mjs`.
+- **Customers** (`/admin/customers`) and the **newsletter CSV** (`/admin/customers/newsletter.csv`: footer sign-ups ∪ opted-in accounts, deduped) read emails from Supabase Auth with the service-role client — both call `requireAdmin()` (`lib/admin-auth.ts`) themselves.
 - `/admin/orders/[id]` is the workshop's print sheet. Its widths come from `orders.measurements`
   — the checkout snapshot, **never** a join to the customer's current profile.
 
