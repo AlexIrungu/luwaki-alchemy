@@ -7,6 +7,7 @@ import { HandsDiagram } from "@/components/account/HandsDiagram";
 import { OrderTimeline } from "@/components/account/OrderTimeline";
 import { ReorderButton } from "@/components/account/ReorderButton";
 import { formatKES } from "@/lib/money";
+import { designHref, shapeStillSrc } from "@/lib/hero";
 
 export const metadata: Metadata = { title: "Account" };
 
@@ -19,6 +20,11 @@ type OrderRow = {
   courier: string | null;
   tracking_ref: string | null;
   order_items: { count: number }[];
+};
+
+type SavedRow = {
+  created_at: string;
+  products: { slug: string; name: string; is_published: boolean; collections: { name: string } | null } | null;
 };
 
 type CommissionRow = { id: string; stage: string; brief: string; quoted_kes: number | null; created_at: string };
@@ -51,7 +57,7 @@ export default async function AccountPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [{ data: profile }, { data: measurements }, { data: orders }, { data: commissions }, { data: collections }] =
+  const [{ data: profile }, { data: measurements }, { data: orders }, { data: commissions }, { data: collections }, { data: saved }] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -72,6 +78,12 @@ export default async function AccountPage() {
         .order("created_at", { ascending: false })
         .returns<CommissionRow[]>(),
       supabase.from("collections").select("id, name").order("sort_order"),
+      supabase
+        .from("wishlist_items")
+        .select("created_at, products(slug, name, is_published, collections(name))")
+        .eq("profile_id", user!.id)
+        .order("created_at", { ascending: false })
+        .returns<SavedRow[]>(),
     ]);
 
   const measured = new Set((measurements ?? []).map((m) => `${m.hand}-${m.finger}`));
@@ -79,6 +91,8 @@ export default async function AccountPage() {
   const unpaid = (orders ?? []).filter((o) => o.status === "pending_payment");
   const active = (orders ?? []).filter((o) => ACTIVE.includes(o.status));
   const past = (orders ?? []).filter((o) => !ACTIVE.includes(o.status) && o.status !== "pending_payment");
+  // A design taken off sale drops out of the list rather than linking to a 404.
+  const savedDesigns = (saved ?? []).flatMap((row) => (row.products?.is_published ? [row.products] : []));
   const quoted = (commissions ?? []).filter((c) => c.quoted_kes !== null && c.stage === "brief");
   const given = profile?.full_name?.trim().split(/\s+/)[0];
   const firstName = given && given[0].toUpperCase() + given.slice(1);
@@ -208,6 +222,38 @@ export default async function AccountPage() {
               {complete ? "All ten nails on file." : `${measured.size} of 10 recorded — required before you can order.`}
             </p>
           </div>
+        </Section>
+
+        <Section
+          title="SAVED DESIGNS"
+          action={
+            <Link href="/collections" className={actionLink}>
+              BROWSE →
+            </Link>
+          }
+        >
+          {savedDesigns.length ? (
+            <ul className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+              {savedDesigns.map((design) => (
+                <li key={design.slug}>
+                  <Link href={designHref(design.slug)} className="group block">
+                    <span className="block aspect-[3/4] border border-line bg-panel transition-colors group-hover:border-ink-faint">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- static shape tiles */}
+                      <img src={shapeStillSrc(design.slug, "coffin")} alt="" className="h-full w-full object-contain p-2" />
+                    </span>
+                    <span className="mt-2 block truncate font-display text-lg leading-tight">{design.name}</span>
+                    {design.collections && (
+                      <span className="block font-mono text-[9px] tracking-[0.2em] text-ink-faint">
+                        {design.collections.name.toUpperCase()}
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-ink-dim">Tap ♡ SAVE on any design to keep it here.</p>
+          )}
         </Section>
 
         <Section

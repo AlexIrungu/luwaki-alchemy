@@ -11,6 +11,7 @@ import { hasStill, shapeStills } from "@/lib/stills";
 import { DesignViewer } from "@/components/three/DesignViewer";
 import { DesignShapeProvider } from "@/components/DesignShape";
 import { ShapeStrip } from "@/components/ShapeStrip";
+import { SaveDesign } from "@/components/SaveDesign";
 
 /**
  * Declared until `npm run db:types` has been run against the linked project.
@@ -56,6 +57,15 @@ export default async function DesignPage({
     .single<DesignRow>();
 
   if (!product) notFound();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const { count: savedCount } = user
+    ? await supabase
+        .from("wishlist_items")
+        .select("*", { count: "exact", head: true })
+        .eq("profile_id", user.id)
+        .eq("product_id", product.id)
+    : { count: 0 };
 
   // The numeral is the design's place in its collection.
   const { data: siblings } = product.collection_id
@@ -136,10 +146,13 @@ export default async function DesignPage({
 
             <span aria-hidden="true" className="mt-12 block h-1.5 w-20 bg-ink" />
 
-            <p className="mt-8 font-mono text-2xl">
-              {formatKES(product.unit_price_kes)}{" "}
-              <span className="text-xs tracking-[0.15em] text-ink-dim">PER NAIL · EXCL. VAT</span>
-            </p>
+            <div className="mt-8 flex flex-wrap items-baseline justify-between gap-4">
+              <p className="font-mono text-2xl">
+                {formatKES(product.unit_price_kes)}{" "}
+                <span className="text-xs tracking-[0.15em] text-ink-dim">PER NAIL · EXCL. VAT</span>
+              </p>
+              <SaveDesign productId={product.id} slug={slug} initialSaved={(savedCount ?? 0) > 0} signedIn={Boolean(user)} />
+            </div>
 
             <AddToSet
               productSlug={slug}
