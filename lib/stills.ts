@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { heroSrc } from "@/lib/hero";
+import { heroSrc, shapeStillSrc } from "@/lib/hero";
 import type { Shape } from "@/lib/catalogue";
 
 /**
@@ -9,8 +9,6 @@ import type { Shape } from "@/lib/catalogue";
  * than no card. Render new ones with `python3 scripts/hero/render.py <slug>`.
  */
 export const hasStill = (slug: string) => existsSync(join(process.cwd(), "public", heroSrc(slug)));
-
-export const shapeStillSrc = (slug: string, shape: Shape) => `/shapes/${slug}-${shape}.webp`;
 
 /**
  * Shape-strip tiles rendered so far, by `python3 scripts/hero/render.py --shapes`.

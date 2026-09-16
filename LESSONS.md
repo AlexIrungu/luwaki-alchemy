@@ -19,6 +19,14 @@ money, or the dev tooling. Architecture rules live in CLAUDE.md; this file is wh
 - **Exports are not centred — rotate the camera, or `<Center>` the nail before rotating the object.**
   Each model keeps its Rhino-sheet offset (up to 0.8 m). An orbit camera hides this; a turntable that
   rotates the nail group swings it out of frame (blank canvas, `renderer.info.render.calls === 0`).
+- **A shape morph needs a signed distance field, not the mask.** Blending the colour-map alpha (or
+  per-region staggered progress) frays a moving outline. `loadMaps` derives a signed distance per
+  texel (inside +, outside −) into the height texture's A channel; the shader blends A with one
+  global eased progress and discards `vSdf < 0`. Shapes line up because every bake anchors the
+  cuticle (low Z in all of Kent's exports) — centring would shrink an oval toward the middle.
+- **`array.map(fn)` / `.filter(fn)` passes the index as the 2nd argument.** Adding an optional
+  `shape` parameter to `loadMaps`/`canMorph` silently turned `slugs.map(loadMaps)` into
+  `loadMaps(slug, 0)`. Always wrap: `slugs.map((slug) => loadMaps(slug))`.
 - **Bake: never smooth the outline with `binary_opening`** — it notches the rim. Keep only the
   largest connected component (scipy) to drop islands.
 - **drei `<Bounds>` fits against world scale.** An entrance that *scales* the nail in makes Bounds

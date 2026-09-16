@@ -181,7 +181,7 @@ export default function UniverseNail({
       ground: css.getPropertyValue("--color-ground").trim(),
     });
     let cancelled = false;
-    Promise.all(slugs.map(loadMaps))
+    Promise.all(slugs.map((slug) => loadMaps(slug)))
       .then((loaded) => !cancelled && setDesigns(loaded))
       .catch(() => !cancelled && setFailed(true));
     return () => {

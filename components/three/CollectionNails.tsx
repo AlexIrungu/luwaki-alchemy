@@ -187,7 +187,7 @@ export default function CollectionNails({
       ground: css.getPropertyValue("--color-ground").trim(),
     });
     let cancelled = false;
-    Promise.all(slugs.map(loadMaps))
+    Promise.all(slugs.map((slug) => loadMaps(slug)))
       .then((loaded) => {
         if (cancelled) return;
         setMaps(new Map(loaded.map((d) => [d.slug, d])));

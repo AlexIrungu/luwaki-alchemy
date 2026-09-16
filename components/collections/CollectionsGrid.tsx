@@ -68,7 +68,7 @@ export function CollectionsGrid({ collections }: { collections: GridCollection[]
   const [live, setLive] = useState(false);
   const [liveReady, setLiveReady] = useState(false);
   const liveSlugs = useMemo(
-    () => collections.flatMap((c) => c.designs.map((d) => d.slug)).filter(canMorph),
+    () => collections.flatMap((c) => c.designs.map((d) => d.slug)).filter((slug) => canMorph(slug)),
     [collections],
   );
   useEffect(() => {

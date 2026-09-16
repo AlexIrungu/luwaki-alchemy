@@ -161,7 +161,7 @@ export function UniverseSteps({ designs, modelSlugs }: { designs: UniverseDesign
   const [hovered, setHovered] = useState<{ index: number; design: UniverseDesign } | null>(null);
   const [liveNail, setLiveNail] = useState(false);
   const [liveReady, setLiveReady] = useState(false);
-  const liveSlugs = useMemo(() => [...new Set(designs.map((d) => d.slug))].filter(canMorph), [designs]);
+  const liveSlugs = useMemo(() => [...new Set(designs.map((d) => d.slug))].filter((slug) => canMorph(slug)), [designs]);
   useEffect(() => {
     if (prefersReducedMotion() || liveSlugs.length === 0) return;
     const desktop = window.matchMedia("(min-width: 1024px)").matches;

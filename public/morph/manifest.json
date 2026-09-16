@@ -26,5 +26,64 @@
     "tessella",
     "tidal-form",
     "turtles-reef"
-  ]
+  ],
+  "shapes": {
+    "butterfly-cove": [
+      "square",
+      "stiletto",
+      "coffin",
+      "oval"
+    ],
+    "crypt-crawler": [
+      "coffin"
+    ],
+    "dragon-scale": [
+      "coffin"
+    ],
+    "fractured-relic": [
+      "coffin"
+    ],
+    "jungle": [
+      "square",
+      "stiletto",
+      "coffin",
+      "oval"
+    ],
+    "kaleidoscope": [
+      "coffin"
+    ],
+    "leopard-rose": [
+      "square",
+      "stiletto",
+      "coffin",
+      "oval"
+    ],
+    "obscura-strata": [
+      "coffin"
+    ],
+    "prism": [
+      "coffin"
+    ],
+    "rimuru": [
+      "square",
+      "stiletto",
+      "coffin",
+      "oval"
+    ],
+    "ripples": [
+      "coffin"
+    ],
+    "spikey-sapphire": [
+      "coffin"
+    ],
+    "tessella": [
+      "coffin"
+    ],
+    "tidal-form": [
+      "coffin"
+    ],
+    "turtles-reef": [
+      "coffin"
+    ]
+  }
 }

@@ -5,14 +5,17 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
-import { HERO_SIZE, heroSrc } from "@/lib/hero";
-import { canMorph } from "@/lib/morph";
+import { shapeStillSrc } from "@/lib/hero";
+import { canMorph, morphKey } from "@/lib/morph";
+import type { Shape } from "@/lib/catalogue";
 import type { HoverInfo, SplitRef } from "@/components/three/HeroNail3D";
 
 /** The real-time surface morph — desktop only, loaded as its own chunk. */
 const HeroNail3D = dynamic(() => import("@/components/three/HeroNail3D"), { ssr: false });
 
-export type HeroSlide = { slug: string; name: string; collection: string | null };
+export type HeroSlide = { slug: string; shape: Shape; name: string; collection: string | null };
+
+const slideKey = (s: HeroSlide) => morphKey(s.slug, s.shape);
 
 const HOLD = 2.8;
 const MORPH = 1.6;
@@ -26,8 +29,9 @@ void main() {
 }`;
 
 /**
- * Noise dissolve between two stills. Each image is sampled "cover"-style so the
- * nail stays centred at any viewport ratio; the outgoing image eases back while
+ * Noise dissolve between two shape tiles. Each is sampled "contain"-style — the
+ * tiles are portrait, so the whole nail stays on screen at any viewport ratio,
+ * over the ground colour; the outgoing image eases back while
  * the incoming one settles from a slight zoom, and a thin glow in the brand
  * turquoise rides the dissolving edge.
  */
@@ -54,13 +58,13 @@ float fbm(vec2 p) {
   for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.0; a *= 0.5; }
   return v;
 }
-vec2 cover(vec2 uv) {
+vec2 contain(vec2 uv) {
   float screen = uResolution.x / uResolution.y, image = uImage.x / uImage.y;
-  vec2 scale = screen > image ? vec2(1.0, image / screen) : vec2(screen / image, 1.0);
+  vec2 scale = screen > image ? vec2(screen / image, 1.0) : vec2(1.0, image / screen);
   return (uv - 0.5) * scale + 0.5;
 }
 void main() {
-  vec2 uv = cover(vUv);
+  vec2 uv = contain(vUv);
   float n = fbm(uv * 3.0);
   float t = uProgress * 1.4 - 0.2;
   float m = smoothstep(t - 0.2, t + 0.2, n);
@@ -118,13 +122,16 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const desktop = window.matchMedia("(min-width: 768px)").matches;
     const webgl2 = Boolean(document.createElement("canvas").getContext("webgl2"));
-    const modelled = slides.filter((s) => canMorph(s.slug)).length >= 2;
+    const modelled = slides.filter((s) => canMorph(s.slug, s.shape)).length >= 2;
     setMode(desktop && webgl2 && modelled ? "3d" : "2d");
   }, [slides]);
 
   // Memoised: a fresh array each render would make the 3D layer reload its maps.
-  const morphable = useMemo(() => slides.map((s) => s.slug).filter(canMorph), [slides]);
-  const setSlugs = useMemo(() => setDesigns.map((d) => d.slug).filter(canMorph), [setDesigns]);
+  const morphable = useMemo(
+    () => slides.filter((s) => canMorph(s.slug, s.shape)).map(({ slug, shape }) => ({ slug, shape })),
+    [slides],
+  );
+  const setSlugs = useMemo(() => setDesigns.map((d) => d.slug).filter((slug) => canMorph(slug)), [setDesigns]);
   // Scroll progress through the pinned hero, read every frame by the 3D scene.
   const split = useRef(0) as SplitRef;
 
@@ -204,9 +211,9 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
       ctx.revert();
     };
   }, [mode, split]);
-  const onMorphChange = useCallback((slug: string) => {
+  const onMorphChange = useCallback((key: string) => {
     setIndex((i) => {
-      const found = slides.findIndex((s) => s.slug === slug);
+      const found = slides.findIndex((s) => slideKey(s) === key);
       return found === -1 ? i : found;
     });
   }, [slides]);
@@ -263,7 +270,6 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
 
     const u = (name: string) => gl.getUniformLocation(program, name);
-    gl.uniform2f(u("uImage"), HERO_SIZE.width, HERO_SIZE.height);
     gl.uniform3f(u("uGlow"), ...tokenRGB("--color-turquoise"));
     gl.uniform1i(u("uFrom"), 0);
     gl.uniform1i(u("uTo"), 1);
@@ -317,9 +323,10 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
 
     // The first still is also the <img> underneath, so the page never waits on
     // the rest; later stills load in the background before the loop starts.
-    Promise.all(slides.map((s) => loadImage(heroSrc(s.slug))))
+    Promise.all(slides.map((s) => loadImage(shapeStillSrc(s.slug, s.shape))))
       .then((images) => {
         if (disposed) return;
+        gl.uniform2f(u("uImage"), images[0].naturalWidth, images[0].naturalHeight);
         images.forEach((img) => textures.push(upload(img)));
         observer.observe(canvas);
         bind(0, 0);
@@ -393,7 +400,7 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
   const morphReady = mode === "3d" && morphSlugs !== null;
   // In 3D the caption counts only the designs that can morph.
   const captionTotal = morphReady ? morphSlugs.length : slides.length;
-  const captionPosition = morphReady ? Math.max(0, morphSlugs.indexOf(current?.slug ?? "")) : index;
+  const captionPosition = morphReady ? Math.max(0, morphSlugs.indexOf(current ? slideKey(current) : "")) : index;
 
   return (
     <section ref={sectionRef} className={`relative bg-ground ${mode === "3d" ? "h-[260vh]" : ""}`}>
@@ -401,13 +408,13 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
       {slides.map((slide, i) => (
         // eslint-disable-next-line @next/next/no-img-element -- the shader reads these same files; next/image would re-encode them to different URLs
         <img
-          key={slide.slug}
-          src={heroSrc(slide.slug)}
+          key={slideKey(slide)}
+          src={shapeStillSrc(slide.slug, slide.shape)}
           alt=""
           aria-hidden="true"
           loading={i === 0 ? "eager" : "lazy"}
           fetchPriority={i === 0 ? "high" : "auto"}
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
+          className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-1000 ${
             i === index && !morphReady ? "opacity-100" : "opacity-0"
           }`}
         />
@@ -424,7 +431,7 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
           />
           <div className="absolute inset-0">
             <HeroNail3D
-              slugs={morphable}
+              steps={morphable}
               setSlugs={setSlugs}
               split={split}
               onReady={onMorphReady}
@@ -507,7 +514,7 @@ export function HeroMorph({ slides, setDesigns = [] }: { slides: HeroSlide[]; se
           <span className="text-ink-faint">
             {String(captionPosition + 1).padStart(2, "0")} / {String(captionTotal).padStart(2, "0")}
           </span>{" "}
-          · SHOP {current.name.toUpperCase()} →
+          · SHOP {current.name.toUpperCase()} — {current.shape.toUpperCase()} →
           {current.collection && <span className="text-ink-faint"> · {current.collection}</span>}
         </Link>
       )}

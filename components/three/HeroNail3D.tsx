@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { gsap } from "@/lib/gsap";
-import { MORPH } from "@/lib/morph";
+import { MORPH, morphKey } from "@/lib/morph";
+import type { HeroStep } from "@/lib/hero";
 import {
   type DesignMaps,
   type Tokens,
@@ -32,14 +33,19 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 
 function SurfaceMorph({
-  designs,
+  steps,
+  first,
+  get,
   tokens,
   split,
   showing,
   onChange,
   onSelect,
 }: {
-  designs: DesignMaps[];
+  steps: HeroStep[];
+  /** Maps for steps[0], already loaded. */
+  first: DesignMaps;
+  get: (step: HeroStep) => Promise<DesignMaps>;
   tokens: Tokens;
   split: SplitRef;
   showing: { current: string };
@@ -51,7 +57,7 @@ function SurfaceMorph({
   const pausedForSplit = useRef(false);
 
   const scene = useMemo(() => {
-    const uniforms = createUniforms(designs[0], designs[1 % designs.length], tokens, 1);
+    const uniforms = createUniforms(first, first, tokens, 1);
     const top = new THREE.Mesh(buildGrid(1), makeMaterial(1, uniforms));
     const underside = new THREE.Mesh(buildGrid(-1), makeMaterial(-1, uniforms));
     top.raycast = noRaycast;
@@ -77,40 +83,55 @@ function SurfaceMorph({
     const hit = makeHitPlane((bounds.x1 - bounds.x0) / 1000, (bounds.z1 - bounds.z0) / 1000);
 
     return { uniforms, top, underside, shadow, hit };
-  }, [designs, tokens]);
+  }, [first, tokens]);
 
   useEffect(() => {
     const { uniforms } = scene;
     let current = 0;
+    let cancelled = false;
+    let retry = 0;
 
-    const announce = (slug: string) => {
-      showing.current = slug;
-      onChange(slug);
+    const announce = (key: string) => {
+      showing.current = key;
+      onChange(key);
     };
 
-    const cycle = () => {
-      const next = (current + 1) % designs.length;
-      uniforms.uHA.value = designs[current].height;
-      uniforms.uCA.value = designs[current].color;
-      uniforms.uHB.value = designs[next].height;
-      uniforms.uCB.value = designs[next].color;
-      uniforms.uProgress.value = 0;
+    // Only what's playing is loaded: each change waits for its incoming maps and
+    // warms the ones after, so a long sequence never downloads up front.
+    const cycle = (from: DesignMaps) => {
+      const next = (current + 1) % steps.length;
+      get(steps[next])
+        .then((to) => {
+          if (cancelled) return;
+          uniforms.uHA.value = from.height;
+          uniforms.uCA.value = from.color;
+          uniforms.uHB.value = to.height;
+          uniforms.uCB.value = to.color;
+          uniforms.uProgress.value = 0;
+          void get(steps[(next + 1) % steps.length]).catch(() => {});
 
-      timeline.current = gsap
-        .timeline({
-          delay: HOLD,
-          paused: pausedForSplit.current,
-          onComplete: () => {
-            current = next;
-            cycle();
-          },
+          timeline.current = gsap
+            .timeline({
+              delay: HOLD,
+              paused: pausedForSplit.current,
+              onComplete: () => {
+                current = next;
+                cycle(to);
+              },
+            })
+            .to(uniforms.uProgress, { value: 1, duration: DURATION, ease: "sine.inOut" })
+            .call(() => announce(to.key), [], DURATION * 0.5);
         })
-        .to(uniforms.uProgress, { value: 1, duration: DURATION, ease: "sine.inOut" })
-        .call(() => announce(designs[next].slug), [], DURATION * 0.5);
+        .catch(() => {
+          // A step that won't load is skipped; the nail on screen simply holds a little longer.
+          if (cancelled) return;
+          current = next;
+          retry = window.setTimeout(() => cycle(from), HOLD * 1000);
+        });
     };
 
-    announce(designs[0].slug);
-    cycle();
+    announce(first.key);
+    cycle(first);
 
     const onVisibility = () => {
       if (!timeline.current || pausedForSplit.current) return;
@@ -119,6 +140,8 @@ function SurfaceMorph({
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
+      cancelled = true;
+      window.clearTimeout(retry);
       timeline.current?.kill();
       document.removeEventListener("visibilitychange", onVisibility);
       [scene.top, scene.underside, scene.shadow, scene.hit].forEach((mesh) => {
@@ -126,7 +149,7 @@ function SurfaceMorph({
         (mesh.material as THREE.Material).dispose();
       });
     };
-  }, [scene, designs, onChange, showing]);
+  }, [scene, steps, first, get, onChange, showing]);
 
   // Pointer → position on the maps (uv), eased so the ripple glides after it.
   const pointer = useMemo(() => {
@@ -236,6 +259,7 @@ export type HoverInfo = { slug: string; colour: string } | null;
 
 function TenSet({
   maps,
+  first,
   order,
   tokens,
   split,
@@ -243,7 +267,10 @@ function TenSet({
   onSelect,
   onHover,
 }: {
-  maps: Map<string, DesignMaps>;
+  /** Every bake loaded so far, by key — the set's coffins plus whatever the loop has shown. */
+  maps: { current: Map<string, DesignMaps> };
+  first: DesignMaps;
+  /** The set's designs, as coffin keys. */
   order: string[];
   tokens: Tokens;
   split: SplitRef;
@@ -257,7 +284,6 @@ function TenSet({
   const lift = useRef<number[]>(SET_SLOTS.map(() => 0));
 
   const nails = useMemo(() => {
-    const first = maps.get(order[0])!;
     const top = buildGrid(1, SET_STEP);
     const under = buildGrid(-1, SET_STEP);
     const hitGeometry = new THREE.PlaneGeometry(0.014, 0.036);
@@ -292,12 +318,12 @@ function TenSet({
         slot,
         group,
         uniforms,
-        slug: order[0],
+        slug: first.slug,
         colour: colour.hex ? colour.name : "",
         meshes: [surfaceTop, surfaceUnder, hit],
       };
     });
-  }, [maps, order, tokens]);
+  }, [first, tokens]);
 
   useEffect(
     () => () => {
@@ -321,9 +347,10 @@ function TenSet({
     // (left thumb), the rest fan out around it.
     if (p <= 0.02) assigned.current = false;
     if (p > 0.02 && !assigned.current) {
-      const chosen = [showing.current, ...order.filter((s) => s !== showing.current)].filter((s) => maps.has(s));
+      // The nail on screen keeps its shape at the centre of the set.
+      const chosen = [showing.current, ...order.filter((s) => s !== showing.current)].filter((s) => maps.current.has(s));
       CENTRE_OUT.forEach((slotIndex, rank) => {
-        const design = maps.get(chosen[rank % chosen.length])!;
+        const design = maps.current.get(chosen[rank % chosen.length])!;
         const nail = nails[slotIndex];
         nail.slug = design.slug;
         nail.uniforms.uHA.value = design.height;
@@ -411,8 +438,22 @@ function TenSet({
   );
 }
 
+/** Calls `onStart` the first frame the hero is scrolled at all. */
+function SplitWatcher({ split, onStart }: { split: SplitRef; onStart: () => void }) {
+  const fired = useRef(false);
+  useFrame(() => {
+    if (fired.current || split.current <= 0) return;
+    fired.current = true;
+    onStart();
+  });
+  return null;
+}
+
+/** Seconds after the loop starts before the set's maps load anyway, scrolled or not. */
+const SET_PRELOAD_AFTER = 6;
+
 export default function HeroNail3D({
-  slugs,
+  steps,
   setSlugs,
   split,
   onReady,
@@ -421,20 +462,47 @@ export default function HeroNail3D({
   onHover,
   onFail,
 }: {
-  slugs: string[];
+  steps: HeroStep[];
   setSlugs: string[];
   split: SplitRef;
-  onReady: (slugs: string[]) => void;
-  onChange: (slug: string) => void;
+  /** Called with the loop's keys once the first maps are in. */
+  onReady: (keys: string[]) => void;
+  onChange: (key: string) => void;
   onSelect: (slug: string) => void;
   onHover: (info: HoverInfo) => void;
   onFail: () => void;
 }) {
   const wrapper = useRef<HTMLDivElement>(null);
   const showing = useRef("");
-  const [maps, setMaps] = useState<Map<string, DesignMaps> | null>(null);
+  const [first, setFirst] = useState<DesignMaps | null>(null);
+  const [setReady, setSetReady] = useState(false);
   const [tokens, setTokens] = useState<Tokens | null>(null);
   const [onScreen, setOnScreen] = useState(true);
+
+  // Each bake is fetched and decoded once, however often the loop comes back to it.
+  const pending = useRef(new Map<string, Promise<DesignMaps>>());
+  const loaded = useRef(new Map<string, DesignMaps>());
+  const get = useCallback((step: HeroStep) => {
+    const key = morphKey(step.slug, step.shape);
+    let promise = pending.current.get(key);
+    if (!promise) {
+      promise = loadMaps(step.slug, step.shape).then((maps) => {
+        loaded.current.set(key, maps);
+        return maps;
+      });
+      promise.catch(() => pending.current.delete(key));
+      pending.current.set(key, promise);
+    }
+    return promise;
+  }, []);
+
+  const setStarted = useRef(false);
+  const loadSet = useCallback(() => {
+    if (setStarted.current || setSlugs.length === 0) return;
+    setStarted.current = true;
+    // The set only fans out on scroll, so its maps wait for the first scroll (or a few seconds).
+    Promise.allSettled(setSlugs.map((slug) => get({ slug, shape: "coffin" }))).then(() => setSetReady(true));
+  }, [setSlugs, get]);
 
   useEffect(() => {
     // Colours follow the brand tokens rather than hardcoded hex.
@@ -446,15 +514,17 @@ export default function HeroNail3D({
     });
 
     let cancelled = false;
-    const wanted = [...new Set([...slugs, ...setSlugs])];
-    Promise.all(wanted.map(loadMaps))
-      .then((loaded) => {
+    let preload = 0;
+    if (steps.length < 2) {
+      onFail();
+      return;
+    }
+    Promise.all([get(steps[0]), get(steps[1])])
+      .then(([maps]) => {
         if (cancelled) return;
-        const bySlug = new Map(loaded.map((d) => [d.slug, d]));
-        const loop = slugs.filter((s) => bySlug.has(s));
-        if (loop.length < 2) return onFail();
-        setMaps(bySlug);
-        onReady(loop);
+        setFirst(maps);
+        onReady(steps.map((step) => morphKey(step.slug, step.shape)));
+        preload = window.setTimeout(loadSet, SET_PRELOAD_AFTER * 1000);
       })
       .catch(() => !cancelled && onFail());
 
@@ -463,15 +533,15 @@ export default function HeroNail3D({
     if (wrapper.current) observer.observe(wrapper.current);
     return () => {
       cancelled = true;
+      window.clearTimeout(preload);
       observer.disconnect();
     };
-  }, [slugs, setSlugs, onReady, onFail]);
+  }, [steps, get, loadSet, onReady, onFail]);
 
-  const loopDesigns = useMemo(
-    () => (maps ? slugs.map((s) => maps.get(s)).filter((d): d is DesignMaps => Boolean(d)) : null),
-    [maps, slugs],
+  const setOrder = useMemo(
+    () => (setReady ? setSlugs.map((slug) => morphKey(slug)).filter((key) => loaded.current.has(key)) : []),
+    [setReady, setSlugs],
   );
-  const setOrder = useMemo(() => (maps ? setSlugs.filter((s) => maps.has(s)) : []), [maps, setSlugs]);
 
   return (
     <div ref={wrapper} className="h-full w-full">
@@ -498,10 +568,13 @@ export default function HeroNail3D({
         <ambientLight intensity={0.45} />
         <directionalLight position={[2, 3, 2.5]} intensity={1.7} />
         <directionalLight position={[-3, 1, -2]} intensity={1.1} />
-        {maps && loopDesigns && tokens && (
+        {first && tokens && (
           <>
+            <SplitWatcher split={split} onStart={loadSet} />
             <SurfaceMorph
-              designs={loopDesigns}
+              steps={steps}
+              first={first}
+              get={get}
               tokens={tokens}
               split={split}
               showing={showing}
@@ -510,7 +583,8 @@ export default function HeroNail3D({
             />
             {setOrder.length > 0 && (
               <TenSet
-                maps={maps}
+                maps={loaded}
+                first={first}
                 order={setOrder}
                 tokens={tokens}
                 split={split}

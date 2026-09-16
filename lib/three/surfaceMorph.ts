@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { MORPH, morphColorSrc, morphHeightSrc } from "@/lib/morph";
+import { MORPH, morphColorSrc, morphHeightSrc, morphKey } from "@/lib/morph";
+import type { Shape } from "@/lib/catalogue";
 
 /**
  * The surface-morph core shared by the home hero and UNIVERSE. Every design is
@@ -11,7 +12,7 @@ import { MORPH, morphColorSrc, morphHeightSrc } from "@/lib/morph";
  * variant (makeWireMaterial).
  */
 
-export type DesignMaps = { slug: string; height: THREE.DataTexture; color: THREE.Texture };
+export type DesignMaps = { slug: string; shape: Shape; key: string; height: THREE.DataTexture; color: THREE.Texture };
 export type Tokens = { glow: string; resin: string; ground: string };
 
 function loadImage(src: string) {
@@ -24,14 +25,56 @@ function loadImage(src: string) {
 }
 
 /**
- * Decodes a design's baked maps into textures. Heights come back as millimetres
- * in a float texture: R top surface, G underside, B inside-mask, A distance to
- * the outline in texels.
+ * Two-pass chamfer distance (in texels) from every `true` cell to the nearest
+ * `false` one, capped. `edgeIsBoundary` treats the image border as outside.
  */
-export async function loadMaps(slug: string): Promise<DesignMaps> {
+function chamfer(mask: Uint8Array, W: number, H: number, edgeIsBoundary: boolean, cap: number) {
+  const dist = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) dist[i] = mask[i] ? 1e6 : 0;
+  const diagonal = Math.SQRT2;
+  const edge = edgeIsBoundary ? 1 : 1e6;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (dist[i] === 0) continue;
+      let d = dist[i];
+      d = x > 0 ? Math.min(d, dist[i - 1] + 1) : Math.min(d, edge);
+      if (y > 0) {
+        d = Math.min(d, dist[i - W] + 1);
+        if (x > 0) d = Math.min(d, dist[i - W - 1] + diagonal);
+        if (x < W - 1) d = Math.min(d, dist[i - W + 1] + diagonal);
+      } else d = Math.min(d, edge);
+      dist[i] = d;
+    }
+  }
+  for (let y = H - 1; y >= 0; y--) {
+    for (let x = W - 1; x >= 0; x--) {
+      const i = y * W + x;
+      if (dist[i] === 0) continue;
+      let d = dist[i];
+      d = x < W - 1 ? Math.min(d, dist[i + 1] + 1) : Math.min(d, edge);
+      if (y < H - 1) {
+        d = Math.min(d, dist[i + W] + 1);
+        if (x < W - 1) d = Math.min(d, dist[i + W + 1] + diagonal);
+        if (x > 0) d = Math.min(d, dist[i + W - 1] + diagonal);
+      } else d = Math.min(d, edge);
+      dist[i] = d;
+    }
+  }
+  for (let i = 0; i < W * H; i++) dist[i] = Math.min(dist[i], cap);
+  return dist;
+}
+
+/**
+ * Decodes a bake into textures. Heights come back as millimetres in a float
+ * texture: R top surface, G underside, B inside-mask, A signed distance to the
+ * outline in texels (positive inside, negative outside). Blending two signed
+ * distances is what lets one shape's outline flow into another's.
+ */
+export async function loadMaps(slug: string, shape: Shape = "coffin"): Promise<DesignMaps> {
   const [img, color] = await Promise.all([
-    loadImage(morphHeightSrc(slug)),
-    new THREE.TextureLoader().loadAsync(morphColorSrc(slug)),
+    loadImage(morphHeightSrc(slug, shape)),
+    new THREE.TextureLoader().loadAsync(morphColorSrc(slug, shape)),
   ]);
 
   const canvas = document.createElement("canvas");
@@ -53,42 +96,20 @@ export async function loadMaps(slug: string): Promise<DesignMaps> {
     data[i * 4 + 3] = 0;
   }
 
-  // A channel: distance to the outline in texels (chamfer, capped at 8). Lets
-  // the shader round the silhouette and keep spines off the rim.
+  // A channel: signed distance to the outline in texels. Inside is measured to
+  // the nearest outside texel (so it also rounds the rim and keeps spines off
+  // it); outside to the nearest inside one, capped well past any shape change.
   const W = img.width;
   const H = img.height;
-  const dist = new Float32Array(W * H);
-  for (let i = 0; i < W * H; i++) dist[i] = data[i * 4 + 2] > 0 ? 1e6 : 0;
-  const diagonal = Math.SQRT2;
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const i = y * W + x;
-      if (dist[i] === 0) continue;
-      let d = dist[i];
-      d = x > 0 ? Math.min(d, dist[i - 1] + 1) : Math.min(d, 1);
-      if (y > 0) {
-        d = Math.min(d, dist[i - W] + 1);
-        if (x > 0) d = Math.min(d, dist[i - W - 1] + diagonal);
-        if (x < W - 1) d = Math.min(d, dist[i - W + 1] + diagonal);
-      } else d = Math.min(d, 1);
-      dist[i] = d;
-    }
+  const inside = new Uint8Array(W * H);
+  const outside = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) {
+    inside[i] = data[i * 4 + 2] > 0 ? 1 : 0;
+    outside[i] = 1 - inside[i];
   }
-  for (let y = H - 1; y >= 0; y--) {
-    for (let x = W - 1; x >= 0; x--) {
-      const i = y * W + x;
-      if (dist[i] === 0) continue;
-      let d = dist[i];
-      d = x < W - 1 ? Math.min(d, dist[i + 1] + 1) : Math.min(d, 1);
-      if (y < H - 1) {
-        d = Math.min(d, dist[i + W] + 1);
-        if (x < W - 1) d = Math.min(d, dist[i + W + 1] + diagonal);
-        if (x > 0) d = Math.min(d, dist[i + W - 1] + diagonal);
-      } else d = Math.min(d, 1);
-      dist[i] = d;
-    }
-  }
-  for (let i = 0; i < W * H; i++) data[i * 4 + 3] = Math.min(dist[i], 8);
+  const toEdge = chamfer(inside, W, H, true, 64);
+  const toNail = chamfer(outside, W, H, false, 64);
+  for (let i = 0; i < W * H; i++) data[i * 4 + 3] = inside[i] ? toEdge[i] : -toNail[i];
 
   const height = new THREE.DataTexture(data, img.width, img.height, THREE.RGBAFormat, THREE.FloatType);
   height.minFilter = THREE.NearestFilter;
@@ -101,7 +122,7 @@ export async function loadMaps(slug: string): Promise<DesignMaps> {
   color.minFilter = THREE.LinearFilter;
   color.needsUpdate = true;
 
-  return { slug, height, color };
+  return { slug, shape, key: morphKey(slug, shape), height, color };
 }
 
 /**
@@ -171,6 +192,7 @@ varying float vThick;
 varying float vLocalZ;
 varying float vObjNormalY;
 varying vec2 vMorphUv;
+varying float vSdf;
 
 float mHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float mNoise(vec2 p) {
@@ -181,6 +203,13 @@ float mNoise(vec2 p) {
              mix(mHash(i + vec2(0.0, 1.0)), mHash(i + vec2(1.0, 1.0)), u.x), u.y);
 }
 
+// The outline changes as one smooth sweep, not per region: a staggered outline
+// would fray. Same shape on both sides, and this changes nothing.
+float mShapeT() { return smoothstep(0.1, 0.9, uProgress); }
+
+// Signed distance to the outline in texels, part-way from A's shape to B's.
+float mSdf(vec2 uv) { return mix(texture2D(uHA, uv).a, texture2D(uHB, uv).a, mShapeT()); }
+
 // Surface height (metres) at uv, part-way (t) from design A to design B.
 // Outside the outline both surfaces rest on the midline, so top and underside
 // meet at the silhouette. Mid-change, short spines rise and fall, then settle
@@ -189,12 +218,14 @@ float mNoise(vec2 p) {
 float mSurface(vec2 uv, float t) {
   vec4 a = texture2D(uHA, uv);
   vec4 b = texture2D(uHB, uv);
-  // .a is the distance to the outline in texels: heights ease down over the
-  // last couple of texels so the rim is rounded rather than a cliff.
-  float ha = mix(0.0, uSide > 0.0 ? a.r : a.g, a.b) * smoothstep(0.0, 2.5, a.a);
-  float hb = mix(0.0, uSide > 0.0 ? b.r : b.g, b.b) * smoothstep(0.0, 2.5, b.a);
+  float ha = mix(0.0, uSide > 0.0 ? a.r : a.g, a.b);
+  float hb = mix(0.0, uSide > 0.0 ? b.r : b.g, b.b);
+  // Heights ease down over the last couple of texels of the (moving) outline,
+  // so the rim is rounded rather than a cliff while a shape grows or recedes.
+  float sdf = mix(a.a, b.a, mShapeT());
+  float rim = smoothstep(0.0, 2.5, sdf);
   // Spines and ripples stay off the rim — out there they break into specks.
-  float inside = smoothstep(2.0, 5.0, mix(a.a, b.a, t)) * step(0.0, uSide);
+  float inside = smoothstep(2.0, 5.0, sdf) * step(0.0, uSide);
 
   float d = length((uv - uPointer) * uGridMM);                 // millimetres from the cursor
   float touch = uPointerStrength * exp(-d * d / 8.0) * inside;
@@ -207,13 +238,14 @@ float mSurface(vec2 uv, float t) {
   float pattern = step(0.8, mix(texture2D(uCA, uv).a, texture2D(uCB, uv).a, t));
   float lift = uExplode * (uSide > 0.0 ? pattern : -0.4);
 
-  return (mix(ha, hb, t) + spines + ripple + lift) * 0.001;
+  return (mix(ha, hb, t) * rim + spines + ripple + lift) * 0.001;
 }
 `;
 
 /** Per-vertex blend position, mask and thickness — shared by solid and wireframe. */
 const VERTEX_PROGRESS = `
 vMorphUv = morphUv;
+vSdf = mSdf(morphUv);
 // Each region changes at its own moment, so the change sweeps across the nail.
 float mStagger = mNoise(morphUv * vec2(5.0, 12.0)) * 0.7 + mNoise(morphUv * vec2(17.0, 40.0)) * 0.3;
 float mRaw = clamp(uProgress * 1.6 - mStagger * 0.6, 0.0, 1.0);
@@ -257,14 +289,16 @@ varying float vThick;
 varying float vLocalZ;
 varying float vObjNormalY;
 varying vec2 vMorphUv;
+varying float vSdf;
 `;
 
 const FRAGMENT_COLOR = `
 vec4 mA = texture2D(uCA, vMorphUv);
 vec4 mB = texture2D(uCB, vMorphUv);
-// The colour map's alpha is linearly filtered, so trimming against it gives a
-// smooth outline between texels instead of the grid's stair-steps.
-if (mix(mA.a, mB.a, vT) < 0.3) discard;
+// The signed distance is interpolated between grid vertices, so trimming
+// against it gives a smooth outline instead of the grid's stair-steps — and the
+// same test follows the outline while one shape becomes another.
+if (vSdf < 0.0) discard;
 // Printing (UNIVERSE): nothing above the current layer exists yet.
 if (uPrintOn > 0.5 && vLocalZ > uPrintLevel) discard;
 // Coming apart (UNIVERSE): the walls stretched between lifted pattern and
@@ -373,7 +407,7 @@ export function makeWireMaterial(shared: SharedUniforms) {
         "#include <color_fragment>",
         [
           "#include <color_fragment>",
-          "if (mix(texture2D(uCA, vMorphUv).a, texture2D(uCB, vMorphUv).a, vT) < 0.3) discard;",
+          "if (vSdf < 0.0) discard;",
           "diffuseColor.rgb = uGlow;",
         ].join("\n"),
       );
