@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { SLOTS, slotKey, slotLabel, type Shape } from "@/lib/catalogue";
+import { SHAPES, SLOTS, slotKey, slotLabel, type Shape } from "@/lib/catalogue";
 import { useCart } from "@/lib/cart/CartProvider";
+import { useDesignShape } from "@/components/DesignShape";
 
 type Variant = { id: string; options: { shape?: Shape }; price_kes: number | null };
 
@@ -23,28 +23,28 @@ export function AddToSet({
   variants: Variant[];
 }) {
   const { cart, fill } = useCart();
-  // Coffin is the only shape Kent has delivered so far, so it leads.
-  const [variantId, setVariantId] = useState(
-    (variants.find((v) => v.options.shape === "coffin") ?? variants[0])?.id ?? "",
-  );
+  const { shape, setShape } = useDesignShape();
 
-  const variant = variants.find((v) => v.id === variantId);
-  const shape = variant?.options.shape;
+  const shaped = variants
+    .filter((v): v is Variant & { options: { shape: Shape } } => Boolean(v.options.shape))
+    .sort((a, b) => SHAPES.indexOf(a.options.shape) - SHAPES.indexOf(b.options.shape));
+  const variant = shaped.find((v) => v.options.shape === shape);
 
   return (
     <div className="mt-10 space-y-8">
       <div>
         <p className="font-mono text-[10px] tracking-[0.25em] text-ink-faint">SHAPE</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          {variants.map((v) => (
+          {shaped.map((v) => (
             <button
               key={v.id}
-              onClick={() => setVariantId(v.id)}
+              onClick={() => setShape(v.options.shape)}
+              aria-pressed={v.options.shape === shape}
               className={`border px-4 py-2 font-mono text-[11px] tracking-[0.15em] transition-colors ${
-                v.id === variantId ? "border-ink text-ink" : "border-line text-ink-dim hover:border-ink-faint"
+                v.options.shape === shape ? "border-ink text-ink" : "border-line text-ink-dim hover:border-ink-faint"
               }`}
             >
-              {v.options.shape?.toUpperCase() ?? "—"}
+              {v.options.shape.toUpperCase()}
             </button>
           ))}
         </div>

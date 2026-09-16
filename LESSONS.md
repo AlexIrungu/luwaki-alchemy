@@ -11,6 +11,14 @@ money, or the dev tooling. Architecture rules live in CLAUDE.md; this file is wh
   map-based. Every canvas listens for `webglcontextlost` and falls back to 2D.
 - **Kent lays every design out on one Rhino sheet**, so each export sits at a different world
   position. Centre before comparing or baking — 14 of 15 designs share an identical coffin shell.
+- **The patterned top of every export is +Y; a plain `rotation-x: -π/2` shows the underside.** The
+  design viewer and the still renderer both did this for weeks: the nail opened back-first, the
+  turn-in ended on the underside, and relief designs (Rimuru, Dragon Scale) rendered "flat". Stand a
+  nail up with `[-π/2, π, 0, "YXZ"]` (or `+π/2` about X when the tip may point down, as the effects
+  do). Check a relief design, not a lattice — lattices look the same from both sides.
+- **Exports are not centred — rotate the camera, or `<Center>` the nail before rotating the object.**
+  Each model keeps its Rhino-sheet offset (up to 0.8 m). An orbit camera hides this; a turntable that
+  rotates the nail group swings it out of frame (blank canvas, `renderer.info.render.calls === 0`).
 - **Bake: never smooth the outline with `binary_opening`** — it notches the rim. Keep only the
   largest connected component (scipy) to drop islands.
 - **drei `<Bounds>` fits against world scale.** An entrance that *scales* the nail in makes Bounds

@@ -135,7 +135,7 @@ checkout. Packaging options and nail-prep add-ons are likewise placeholders.
   `<19.3`, which is why `react`/`react-dom` are pinned `~19.2.8`.
 - The first 15 designs are seeded (`supabase/seed/`). Kent's file names are final; the brief's
   working names map across in `designs_2026-09-15.sql`.
-- Don't commit Kent's raw exports. They live in `source/` (gitignored); `npm run models` writes the Draco GLBs + `public/models/manifest.json`. A model's filename slug must equal the design's `products.slug`.
+- Don't commit Kent's raw exports. They live in `source/` (gitignored); `npm run models` writes `<slug>-<shape>-{full,web}.glb` + `public/models/manifest.json` (grouped by design → shape). Every export is named `<DESIGN> <SHAPE>.gltf` (`JUNGLE OVAL.gltf`, coffin included); the design part must slugify to the design's `products.slug`. The script rejects files without a shape word and slugs missing from the catalogue, and deletes GLBs no source produces. The morph bake reads only `* COFFIN.gltf`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

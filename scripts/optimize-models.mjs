@@ -4,26 +4,36 @@
  *
  *   Drop Kent's exports into source/ (gitignored) and run:  npm run models
  *
- * Each export becomes two Draco-compressed GLBs in public/models/:
- *   <slug>-full.glb   every triangle kept, just packed properly
- *   <slug>-web.glb    simplified for phones
- * plus public/models/manifest.json, read straight off the geometry. The
- * catalogue grows by 30 models a month, so nothing here is maintained by hand.
+ * Every export is named "<DESIGN> <SHAPE>.gltf" — "JUNGLE OVAL.gltf" — and
+ * becomes two Draco-compressed GLBs in public/models/:
+ *   <slug>-<shape>-full.glb   every triangle kept, just packed properly
+ *   <slug>-<shape>-web.glb    simplified for phones
+ * plus public/models/manifest.json, grouped by design, read straight off the
+ * geometry. The catalogue grows by 30 models a month, so nothing here is
+ * maintained by hand.
  *
- * The slug is the design's URL slug in `products`, derived from the filename
- * the same way lib/slug.ts derives it from the design name — so a file named
- * "TURTLE_S REEF.gltf" lands on /designs/turtles-reef with no mapping table.
+ * A file whose name doesn't end in a known shape is rejected, never guessed:
+ * a guessed shape would process cleanly and then never appear on the site.
+ *
+ * The slug is the design's URL slug in `products`, derived from the design
+ * part of the filename the same way lib/slug.ts derives it from the design
+ * name — so "TURTLE_S REEF COFFIN.gltf" lands on /designs/turtles-reef with no
+ * mapping table. With .env.local present, every slug is checked against the
+ * catalogue.
  *
  * Requires the gltf-transform CLI:  npm i -g @gltf-transform/cli
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 
 const SOURCE_DIR = "source";
 const OUT_DIR = join("public", "models");
 const MANIFEST = join(OUT_DIR, "manifest.json");
+
+/** Mirrors SHAPES in lib/catalogue.ts — same names, same order. */
+const SHAPES = ["cubic", "square", "stiletto", "coffin", "oval"];
 
 /**
  * Fraction of the bounding-box diagonal a simplified vertex may move. Nails
@@ -39,8 +49,8 @@ const kb = (path) => Math.round(statSync(path).size / 1024);
  * Mirrors slugify() in lib/slug.ts. Rhino writes an apostrophe as "_", so
  * "TURTLE_S REEF" is read as "turtle's reef" first.
  */
-const slugFromFile = (file) =>
-  basename(file, extname(file))
+const slugify = (name) =>
+  name
     .replace(/_(?=s\b)/gi, "'")
     .toLowerCase()
     .normalize("NFKD")
@@ -48,6 +58,15 @@ const slugFromFile = (file) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
+
+/** "JUNGLE OVAL.gltf" → { slug: "jungle", shape: "oval" }, or null. */
+function parseFile(file) {
+  const match = basename(file, extname(file)).trim().match(/^(.+?)[\s_-]+(\S+)$/);
+  if (!match) return null;
+  const shape = match[2].toLowerCase();
+  if (!SHAPES.includes(shape)) return null;
+  return { slug: slugify(match[1]), shape };
+}
 
 function readStats(path) {
   const buffer = readFileSync(path);
@@ -69,6 +88,18 @@ function readStats(path) {
   return { triangles, vertices };
 }
 
+/** Slugs in `products`, or null when there are no credentials to ask with. */
+async function catalogueSlugs() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  const res = await fetch(`${url}/rest/v1/products?select=slug`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}` },
+  });
+  if (!res.ok) throw new Error(`catalogue check: ${res.status} ${await res.text()}`);
+  return new Set((await res.json()).map((p) => p.slug));
+}
+
 if (!existsSync(SOURCE_DIR)) {
   console.error(`No ${SOURCE_DIR}/ directory. Put Kent's exports there and run again.`);
   process.exit(1);
@@ -80,17 +111,35 @@ if (sources.length === 0) {
   process.exit(1);
 }
 
+const parsed = sources.map((file) => ({ file, ...parseFile(file) }));
+const unnamed = parsed.filter((p) => !p.shape);
+if (unnamed.length) {
+  console.error(`These don't end in a shape (${SHAPES.join(" · ")}) — rename them "<DESIGN> <SHAPE>.gltf":`);
+  for (const { file } of unnamed) console.error(`  ✗ ${file}`);
+  process.exit(1);
+}
+
+const known = await catalogueSlugs();
+if (known) {
+  const strangers = [...new Set(parsed.map((p) => p.slug))].filter((slug) => !known.has(slug));
+  if (strangers.length) {
+    console.error(`No design in the catalogue for: ${strangers.join(", ")}. Fix the filename or create the design first.`);
+    process.exit(1);
+  }
+} else {
+  console.warn("! No Supabase credentials — slugs not checked against the catalogue.\n");
+}
+
 mkdirSync(OUT_DIR, { recursive: true });
 console.log(`${sources.length} source file(s)\n`);
 
-const manifest = [];
+const designs = new Map();
 let failed = 0;
 
-for (const file of sources) {
-  const slug = slugFromFile(file);
+for (const { file, slug, shape } of parsed) {
   const input = join(SOURCE_DIR, file);
-  const full = join(OUT_DIR, `${slug}-full.glb`);
-  const web = join(OUT_DIR, `${slug}-web.glb`);
+  const full = join(OUT_DIR, `${slug}-${shape}-full.glb`);
+  const web = join(OUT_DIR, `${slug}-${shape}-web.glb`);
 
   try {
     run(["optimize", input, full, "--compress", "draco", "--simplify", "false"]);
@@ -102,22 +151,43 @@ for (const file of sources) {
     continue;
   }
 
-  manifest.push({
-    slug,
+  if (!designs.has(slug)) designs.set(slug, {});
+  designs.get(slug)[shape] = {
     sizeKB: { full: kb(full), web: kb(web) },
     vertices: { full: readStats(full).vertices, web: readStats(web).vertices },
     sourceTriangles: readStats(input).triangles,
     sourceMB: +(statSync(input).size / 1024 / 1024).toFixed(1),
-  });
+  };
 
-  console.log(`${slug.padEnd(18)} ${String(kb(input)).padStart(7)} KB  →  full ${String(kb(full)).padStart(5)} KB   web ${String(kb(web)).padStart(5)} KB`);
+  console.log(`${`${slug} ${shape}`.padEnd(26)} ${String(kb(input)).padStart(7)} KB  →  full ${String(kb(full)).padStart(5)} KB   web ${String(kb(web)).padStart(5)} KB`);
 }
 
+const manifest = [...designs]
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([slug, byShape]) => ({
+    slug,
+    shapes: Object.fromEntries(SHAPES.filter((s) => byShape[s]).map((s) => [s, byShape[s]])),
+  }));
 writeFileSync(MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
-const total = manifest.reduce((sum, d) => sum + d.sizeKB.full, 0);
-console.log(`\n${manifest.length} designs · ${(total / 1024).toFixed(1)} MB at full detail · manifest → ${MANIFEST}`);
+
+// GLBs no source file produces any more (renamed or retired exports).
+const expected = new Set(manifest.flatMap(({ slug, shapes }) =>
+  Object.keys(shapes).flatMap((s) => [`${slug}-${s}-full.glb`, `${slug}-${s}-web.glb`])));
+const stale = failed ? [] : readdirSync(OUT_DIR).filter((f) => f.endsWith(".glb") && !expected.has(f));
+for (const f of stale) rmSync(join(OUT_DIR, f));
+
+const models = manifest.reduce((n, d) => n + Object.keys(d.shapes).length, 0);
+const total = manifest.reduce((sum, d) => sum + Object.values(d.shapes).reduce((s, m) => s + m.sizeKB.full, 0), 0);
+console.log(`\n${manifest.length} designs · ${models} models · ${(total / 1024).toFixed(1)} MB at full detail · manifest → ${MANIFEST}`);
+if (stale.length) console.log(`Removed ${stale.length} stale GLB(s): ${stale.join(", ")}`);
+
+console.log("\nShapes still arriving:");
+for (const { slug, shapes } of manifest) {
+  const missing = SHAPES.filter((s) => !shapes[s]);
+  if (missing.length) console.log(`  ${slug.padEnd(18)} ${missing.join(" · ")}`);
+}
 
 if (failed) {
-  console.error(`${failed} file(s) failed — see above.`);
+  console.error(`${failed} file(s) failed — see above. Stale GLBs left in place.`);
   process.exit(1);
 }

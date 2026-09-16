@@ -1,197 +1,401 @@
 [
   {
     "slug": "butterfly-cove",
-    "sizeKB": {
-      "full": 1064,
-      "web": 727
-    },
-    "vertices": {
-      "full": 373928,
-      "web": 258197
-    },
-    "sourceTriangles": 407452,
-    "sourceMB": 23.3
+    "shapes": {
+      "square": {
+        "sizeKB": {
+          "full": 1092,
+          "web": 802
+        },
+        "vertices": {
+          "full": 386952,
+          "web": 289718
+        },
+        "sourceTriangles": 387494,
+        "sourceMB": 24.4
+      },
+      "stiletto": {
+        "sizeKB": {
+          "full": 1086,
+          "web": 804
+        },
+        "vertices": {
+          "full": 384602,
+          "web": 289153
+        },
+        "sourceTriangles": 384980,
+        "sourceMB": 24.2
+      },
+      "coffin": {
+        "sizeKB": {
+          "full": 1064,
+          "web": 727
+        },
+        "vertices": {
+          "full": 373928,
+          "web": 258197
+        },
+        "sourceTriangles": 407452,
+        "sourceMB": 23.3
+      },
+      "oval": {
+        "sizeKB": {
+          "full": 995,
+          "web": 740
+        },
+        "vertices": {
+          "full": 358253,
+          "web": 263279
+        },
+        "sourceTriangles": 409614,
+        "sourceMB": 22
+      }
+    }
   },
   {
     "slug": "crypt-crawler",
-    "sizeKB": {
-      "full": 1859,
-      "web": 1353
-    },
-    "vertices": {
-      "full": 441336,
-      "web": 297007
-    },
-    "sourceTriangles": 792552,
-    "sourceMB": 25.6
+    "shapes": {
+      "coffin": {
+        "sizeKB": {
+          "full": 1859,
+          "web": 1353
+        },
+        "vertices": {
+          "full": 441336,
+          "web": 297007
+        },
+        "sourceTriangles": 792552,
+        "sourceMB": 25.6
+      }
+    }
   },
   {
     "slug": "dragon-scale",
-    "sizeKB": {
-      "full": 130,
-      "web": 107
-    },
-    "vertices": {
-      "full": 40567,
-      "web": 31225
-    },
-    "sourceTriangles": 40265,
-    "sourceMB": 1.9
+    "shapes": {
+      "coffin": {
+        "sizeKB": {
+          "full": 130,
+          "web": 107
+        },
+        "vertices": {
+          "full": 40567,
+          "web": 31225
+        },
+        "sourceTriangles": 40265,
+        "sourceMB": 1.9
+      }
+    }
   },
   {
     "slug": "fractured-relic",
-    "sizeKB": {
-      "full": 724,
-      "web": 403
-    },
-    "vertices": {
-      "full": 186394,
-      "web": 83575
-    },
-    "sourceTriangles": 371407,
-    "sourceMB": 13.4
+    "shapes": {
+      "coffin": {
+        "sizeKB": {
+          "full": 724,
+          "web": 403
+        },
+        "vertices": {
+          "full": 186394,
+          "web": 83575
+        },
+        "sourceTriangles": 371407,
+        "sourceMB": 13.4
+      }
+    }
   },
   {
     "slug": "jungle",
-    "sizeKB": {
-      "full": 683,
-      "web": 490
-    },
-    "vertices": {
-      "full": 238984,
-      "web": 174652
-    },
-    "sourceTriangles": 241274,
-    "sourceMB": 14.8
+    "shapes": {
+      "square": {
+        "sizeKB": {
+          "full": 699,
+          "web": 512
+        },
+        "vertices": {
+          "full": 240189,
+          "web": 179469
+        },
+        "sourceTriangles": 242254,
+        "sourceMB": 14.9
+      },
+      "stiletto": {
+        "sizeKB": {
+          "full": 687,
+          "web": 504
+        },
+        "vertices": {
+          "full": 236947,
+          "web": 176846
+        },
+        "sourceTriangles": 238638,
+        "sourceMB": 14.7
+      },
+      "coffin": {
+        "sizeKB": {
+          "full": 683,
+          "web": 490
+        },
+        "vertices": {
+          "full": 238984,
+          "web": 174652
+        },
+        "sourceTriangles": 241274,
+        "sourceMB": 14.8
+      },
+      "oval": {
+        "sizeKB": {
+          "full": 681,
+          "web": 534
+        },
+        "vertices": {
+          "full": 240611,
+          "web": 190470
+        },
+        "sourceTriangles": 241550,
+        "sourceMB": 14.9
+      }
+    }
   },
   {
     "slug": "kaleidoscope",
-    "sizeKB": {
-      "full": 32,
-      "web": 28
-    },
-    "vertices": {
-      "full": 7539,
-      "web": 6346
-    },
-    "sourceTriangles": 9448,
-    "sourceMB": 0.4
+    "shapes": {
+      "coffin": {
+        "sizeKB": {
+          "full": 32,
+          "web": 28
+        },
+        "vertices": {
+          "full": 7539,
+          "web": 6346
+        },
+        "sourceTriangles": 9448,
+        "sourceMB": 0.4
+      }
+    }
   },
   {
     "slug": "leopard-rose",
-    "sizeKB": {
-      "full": 816,
-      "web": 605
-    },
-    "vertices": {
-      "full": 289558,
-      "web": 207406
-    },
-    "sourceTriangles": 330686,
-    "sourceMB": 14.5
+    "shapes": {
+      "square": {
+        "sizeKB": {
+          "full": 1075,
+          "web": 813
+        },
+        "vertices": {
+          "full": 403504,
+          "web": 301878
+        },
+        "sourceTriangles": 438750,
+        "sourceMB": 19.9
+      },
+      "stiletto": {
+        "sizeKB": {
+          "full": 990,
+          "web": 752
+        },
+        "vertices": {
+          "full": 369651,
+          "web": 278560
+        },
+        "sourceTriangles": 392196,
+        "sourceMB": 18.2
+      },
+      "coffin": {
+        "sizeKB": {
+          "full": 816,
+          "web": 605
+        },
+        "vertices": {
+          "full": 289558,
+          "web": 207406
+        },
+        "sourceTriangles": 330686,
+        "sourceMB": 14.5
+      },
+      "oval": {
+        "sizeKB": {
+          "full": 786,
+          "web": 616
+        },
+        "vertices": {
+          "full": 320921,
+          "web": 252761
+        },
+        "sourceTriangles": 345766,
+        "sourceMB": 18.6
+      }
+    }
   },
   {
     "slug": "obscura-strata",
-    "sizeKB": {
-      "full": 1931,
-      "web": 750
-    },
-    "vertices": {
-      "full": 715255,
-      "web": 194107
-    },
-    "sourceTriangles": 1162686,
-    "sourceMB": 39.9
+    "shapes": {
+      "coffin": {
+        "sizeKB": {
+          "full": 1931,
+          "web": 750
+        },
+        "vertices": {
+          "full": 715255,
+          "web": 194107
+        },
+        "sourceTriangles": 1162686,
+        "sourceMB": 39.9
+      }
+    }
   },
   {
     "slug": "prism",
-    "sizeKB": {
-      "full": 24,
-      "web": 20
-    },
-    "vertices": {
-      "full": 5532,
-      "web": 4459
-    },
-    "sourceTriangles": 7738,
-    "sourceMB": 0.4
+    "shapes": {
+      "coffin": {
+        "sizeKB": {
+          "full": 24,
+          "web": 20
+        },
+        "vertices": {
+          "full": 5532,
+          "web": 4459
+        },
+        "sourceTriangles": 7738,
+        "sourceMB": 0.4
+      }
+    }
   },
   {
     "slug": "rimuru",
-    "sizeKB": {
-      "full": 1995,
-      "web": 1056
-    },
-    "vertices": {
-      "full": 580959,
-      "web": 276495
-    },
-    "sourceTriangles": 1046042,
-    "sourceMB": 35
+    "shapes": {
+      "square": {
+        "sizeKB": {
+          "full": 1773,
+          "web": 1210
+        },
+        "vertices": {
+          "full": 522685,
+          "web": 335763
+        },
+        "sourceTriangles": 872426,
+        "sourceMB": 29.4
+      },
+      "stiletto": {
+        "sizeKB": {
+          "full": 1552,
+          "web": 865
+        },
+        "vertices": {
+          "full": 453182,
+          "web": 228865
+        },
+        "sourceTriangles": 793110,
+        "sourceMB": 26.1
+      },
+      "coffin": {
+        "sizeKB": {
+          "full": 1995,
+          "web": 1056
+        },
+        "vertices": {
+          "full": 580959,
+          "web": 276495
+        },
+        "sourceTriangles": 1046042,
+        "sourceMB": 35
+      },
+      "oval": {
+        "sizeKB": {
+          "full": 1549,
+          "web": 1100
+        },
+        "vertices": {
+          "full": 445632,
+          "web": 294362
+        },
+        "sourceTriangles": 785650,
+        "sourceMB": 25.7
+      }
+    }
   },
   {
     "slug": "ripples",
-    "sizeKB": {
-      "full": 1698,
-      "web": 664
-    },
-    "vertices": {
-      "full": 644820,
-      "web": 140184
-    },
-    "sourceTriangles": 1257192,
-    "sourceMB": 38.9
+    "shapes": {
+      "coffin": {
+        "sizeKB": {
+          "full": 1698,
+          "web": 664
+        },
+        "vertices": {
+          "full": 644820,
+          "web": 140184
+        },
+        "sourceTriangles": 1257192,
+        "sourceMB": 38.9
+      }
+    }
   },
   {
     "slug": "spikey-sapphire",
-    "sizeKB": {
-      "full": 24,
-      "web": 22
-    },
-    "vertices": {
-      "full": 6094,
-      "web": 5358
-    },
-    "sourceTriangles": 7738,
-    "sourceMB": 0.4
+    "shapes": {
+      "coffin": {
+        "sizeKB": {
+          "full": 24,
+          "web": 22
+        },
+        "vertices": {
+          "full": 6094,
+          "web": 5358
+        },
+        "sourceTriangles": 7738,
+        "sourceMB": 0.4
+      }
+    }
   },
   {
     "slug": "tessella",
-    "sizeKB": {
-      "full": 85,
-      "web": 77
-    },
-    "vertices": {
-      "full": 22740,
-      "web": 19997
-    },
-    "sourceTriangles": 24593,
-    "sourceMB": 1.1
+    "shapes": {
+      "coffin": {
+        "sizeKB": {
+          "full": 85,
+          "web": 77
+        },
+        "vertices": {
+          "full": 22740,
+          "web": 19997
+        },
+        "sourceTriangles": 24593,
+        "sourceMB": 1.1
+      }
+    }
   },
   {
     "slug": "tidal-form",
-    "sizeKB": {
-      "full": 44,
-      "web": 39
-    },
-    "vertices": {
-      "full": 10973,
-      "web": 9520
-    },
-    "sourceTriangles": 13878,
-    "sourceMB": 0.6
+    "shapes": {
+      "coffin": {
+        "sizeKB": {
+          "full": 44,
+          "web": 39
+        },
+        "vertices": {
+          "full": 10973,
+          "web": 9520
+        },
+        "sourceTriangles": 13878,
+        "sourceMB": 0.6
+      }
+    }
   },
   {
     "slug": "turtles-reef",
-    "sizeKB": {
-      "full": 268,
-      "web": 171
-    },
-    "vertices": {
-      "full": 78000,
-      "web": 47876
-    },
-    "sourceTriangles": 77354,
-    "sourceMB": 3.7
+    "shapes": {
+      "coffin": {
+        "sizeKB": {
+          "full": 268,
+          "web": 171
+        },
+        "vertices": {
+          "full": 78000,
+          "web": 47876
+        },
+        "sourceTriangles": 77354,
+        "sourceMB": 3.7
+      }
+    }
   }
 ]

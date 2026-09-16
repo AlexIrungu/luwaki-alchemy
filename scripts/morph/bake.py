@@ -39,8 +39,9 @@ WIDTH = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
 
 
 def slug_from_file(path):
-    """Mirrors slugFromFile() in scripts/optimize-models.mjs."""
-    s = re.sub(r"_(?=s\b)", "'", path.stem, flags=re.I).lower()
+    """Mirrors parseFile() + slugify() in scripts/optimize-models.mjs: "JUNGLE COFFIN" → "jungle"."""
+    name = re.sub(r"[\s_-]+coffin$", "", path.stem.strip(), flags=re.I)
+    s = re.sub(r"_(?=s\b)", "'", name, flags=re.I).lower()
     s = unicodedata.normalize("NFKD", s)
     s = re.sub(r"['’]", "", s)
     return re.sub(r"[^a-z0-9]+", "-", s).strip("-")[:60]
@@ -210,7 +211,8 @@ def bake(path, slug):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     baked = []
-    for path in sorted(SOURCE.glob("*.gltf")):
+    # The morph blends every design on the shared coffin shell, so only coffin exports are baked.
+    for path in sorted(SOURCE.glob("* COFFIN.gltf")):
         slug = slug_from_file(path)
         result = bake(path, slug)
         if result.startswith(("no ", "skipped")):

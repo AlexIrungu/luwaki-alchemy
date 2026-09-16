@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, Inter, JetBrains_Mono } from "next/font/google";
 import { CartProvider } from "@/lib/cart/CartProvider";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { HeaderBand } from "@/components/layout/HeaderBand";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SmoothScroll } from "@/components/motion/SmoothScroll";
 import { StorefrontOnly } from "@/components/layout/StorefrontOnly";
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </StorefrontOnly>
         <CartProvider>
           <StorefrontOnly>
+            <HeaderBand />
             <SiteHeader />
           </StorefrontOnly>
           <main>{children}</main>
